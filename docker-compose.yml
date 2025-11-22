@@ -50,7 +50,7 @@ services:
 
   # ChromaDB - VectorDB for development (768-dim embeddings, 5 collections)
   chromadb:
-    image: chromadb/chroma:0.4.18
+    image: chromadb/chroma:latest
     container_name: gaji-chromadb
     environment:
       - CHROMA_SERVER_HOST=0.0.0.0
@@ -64,11 +64,6 @@ services:
     networks:
       - gaji-network
     mem_limit: 4g
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   # Spring Boot - API Gateway (Pattern B)
   backend:
@@ -95,8 +90,9 @@ services:
     networks:
       - gaji-network
     volumes:
-      - ./gajiBE:/app
+      - ./gajiBE/backend:/app
       - /app/build
+      - /app/.gradle
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
@@ -131,16 +127,13 @@ services:
       redis:
         condition: service_healthy
       chromadb:
-        condition: service_healthy
+        condition: service_started
     networks:
       - gaji-network
     volumes:
-      - ./gajiAI:/app
-    command: >
-      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
-             celery -A app.celery_app worker --loglevel=info"
+      - ./gajiAI/rag-chatbot_test:/app
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -162,12 +155,12 @@ services:
     networks:
       - gaji-network
     volumes:
-      - ./gajiFE:/app
+      - ./gajiFE/frontend:/app
       - /app/node_modules
       - /app/styled-system
     command: pnpm dev --host 0.0.0.0
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
