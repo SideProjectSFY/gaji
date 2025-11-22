@@ -1,0 +1,9 @@
+[submodule "gajiBE"]
+	path = gajiBE
+	url = https://github.com/SideProjectSFY/gajiBE
+[submodule "gajiAI"]
+	path = gajiAI
+	url = https://github.com/SideProjectSFY/gajiAI
+[submodule "gajiFE"]
+	path = gajiFE
+	url = https://github.com/SideProjectSFY/gajiFE

@@ -1,0 +1,173 @@
+version: "3.8"
+
+networks:
+  gaji-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  chromadb-data:
+  redis-data:
+
+services:
+  # PostgreSQL - Metadata storage only (13 tables)
+  postgres:
+    image: postgres:15-alpine
+    container_name: gaji-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-gaji_db}
+      POSTGRES_USER: ${DB_USER:-gaji_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - gaji-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gaji_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Celery broker + Long Polling task storage (600s TTL)
+  redis:
+    image: redis:7-alpine
+    container_name: gaji-redis
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - gaji-network
+    command: redis-server --appendonly yes
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ChromaDB - VectorDB for development (768-dim embeddings, 5 collections)
+  chromadb:
+    image: chromadb/chroma:0.4.18
+    container_name: gaji-chromadb
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chromadb-data:/chroma/chroma
+    ports:
+      - "8001:8000"
+    networks:
+      - gaji-network
+    mem_limit: 4g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Spring Boot - API Gateway (Pattern B)
+  backend:
+    build:
+      context: ./gajiBE
+      dockerfile: Dockerfile.dev
+    container_name: gaji-backend
+    environment:
+      # PostgreSQL (metadata only)
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-gaji_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-gaji_user}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      # FastAPI internal URL (Pattern B)
+      FASTAPI_BASE_URL: http://ai-service:8000
+      # Gemini API key (used by FastAPI, passed for config validation)
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gaji-network
+    volumes:
+      - ./gajiBE:/app
+      - /app/build
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # FastAPI - Internal-only AI service (Pattern B)
+  ai-service:
+    build:
+      context: ./gajiAI
+      dockerfile: Dockerfile.dev
+    container_name: gaji-ai-service
+    environment:
+      # Gemini API
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      # VectorDB
+      VECTORDB_TYPE: chromadb
+      CHROMADB_HOST: chromadb
+      CHROMADB_PORT: 8000
+      # Spring Boot URL (for callbacks)
+      SPRING_BOOT_URL: http://backend:8080
+      # Redis for Celery + Long Polling (600s TTL)
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    networks:
+      - gaji-network
+    volumes:
+      - ./gajiAI:/app
+    command: >
+      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+             celery -A app.celery_app worker --loglevel=info"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Vue.js Frontend (Pattern B: talks to Spring Boot only)
+  frontend:
+    build:
+      context: ./gajiFE
+      dockerfile: Dockerfile.dev
+    container_name: gaji-frontend
+    environment:
+      # Pattern B: Frontend → Spring Boot ONLY
+      VITE_API_BASE_URL: http://localhost:8080/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - gaji-network
+    volumes:
+      - ./gajiFE:/app
+      - /app/node_modules
+      - /app/styled-system
+    command: pnpm dev --host 0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
