@@ -1,5 +1,3 @@
-version: "3.8"
-
 networks:
   gaji-network:
     driver: bridge
@@ -134,7 +132,7 @@ services:
       - ./gajiAI/rag-chatbot_test:/app
     healthcheck:
       test:
-        ["CMD-SHELL", "wget --spider -q http://localhost:8000/health || exit 1"]
+        ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -161,7 +159,7 @@ services:
       - /app/styled-system
     command: pnpm dev --host 0.0.0.0
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      test: ["CMD", "wget", "-qO-", "--timeout=5", "http://127.0.0.1:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
