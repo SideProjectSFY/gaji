@@ -62,6 +62,12 @@ services:
     networks:
       - gaji-network
     mem_limit: 4g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   # Spring Boot - API Gateway (Pattern B)
   backend:
@@ -76,6 +82,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       # FastAPI internal URL (Pattern B)
       FASTAPI_BASE_URL: http://ai-service:8000
+      # Redis (for health check)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       # Gemini API key (used by FastAPI, passed for config validation)
       GEMINI_API_KEY: ${GEMINI_API_KEY}
     ports:
@@ -125,7 +134,7 @@ services:
       redis:
         condition: service_healthy
       chromadb:
-        condition: service_started
+        condition: service_healthy
     networks:
       - gaji-network
     volumes:
