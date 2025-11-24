@@ -1,17 +1,17 @@
 # Story 0.7: VectorDB Data Import from Pre-processed Dataset
 
-**Epic**: Epic 0 - Project Setup & Infrastructure  
-**Priority**: P0 - Critical  
+**Epic**: Epic 0 - Project Setup & Infrastructure
+**Priority**: P0 - Critical
 **Estimated Effort**: 3 hours
 
 ## Status
 
-Ready to Implement
+✅ **Implemented** (2024-11-23)
 
 ## Story
 
-As a **platform administrator**,  
-I want **pre-processed Project Gutenberg dataset to be imported into VectorDB**,  
+As a **platform administrator**,
+I want **pre-processed Project Gutenberg dataset to be imported into VectorDB**,
 So that **the application has novel passages, characters, and metadata ready for scenario creation**.
 
 ## Context
@@ -48,31 +48,31 @@ PostgreSQL (novel metadata via Spring Boot API)
 
 ### AC1: Dataset Structure Validation
 
-- [ ] Dataset contains required files/tables:
+- [x] Dataset contains required files/tables:
   - `novels.json` - Novel metadata (title, author, year, genre)
   - `passages.parquet` - Text chunks with embeddings (200-500 words each)
   - `characters.json` - Character metadata (name, role, description, personality_traits)
   - `locations.json` - Setting descriptions
   - `events.json` - Plot events
   - `themes.json` - Thematic analysis (optional)
-- [ ] Embedding validation:
+- [x] Embedding validation:
   - Dimension: 768 (Gemini Embedding API compatible)
   - Data type: float32 or float64
   - No null embeddings
-- [ ] Data integrity checks:
+- [x] Data integrity checks:
   - All passages reference valid novel_id
   - All characters reference valid novel_id
   - No duplicate IDs within collections
 
 ### AC2: ChromaDB Collection Setup
 
-- [ ] Create 5 ChromaDB collections:
+- [x] Create 5 ChromaDB collections:
   - `novel_passages` - Text chunks with embeddings
   - `characters` - Character metadata
   - `locations` - Settings and places
   - `events` - Plot events
   - `themes` - Thematic elements
-- [ ] Collection schema for `novel_passages`:
+- [x] Collection schema for `novel_passages`:
   ```python
   {
     "id": "UUID",
@@ -85,7 +85,7 @@ PostgreSQL (novel metadata via Spring Boot API)
     "embedding": [768 floats]
   }
   ```
-- [ ] Collection schema for `characters`:
+- [x] Collection schema for `characters`:
   ```python
   {
     "id": "UUID",
@@ -98,13 +98,13 @@ PostgreSQL (novel metadata via Spring Boot API)
     "embedding": [768 floats]  # character description embedding
   }
   ```
-- [ ] Distance metric: Cosine similarity (ChromaDB default)
-- [ ] Index type: HNSW (Hierarchical Navigable Small World) for fast ANN search
+- [x] Distance metric: Cosine similarity (ChromaDB default)
+- [x] Index type: HNSW (Hierarchical Navigable Small World) for fast ANN search
 
 ### AC3: Python Import Script
 
-- [ ] Script location: `ai-backend/scripts/import_dataset.py`
-- [ ] Command-line interface:
+- [x] Script location: `gajiAI/rag-chatbot_test/scripts/import_dataset.py`
+- [x] Command-line interface:
   ```bash
   python scripts/import_dataset.py \
     --dataset-path /path/to/gutenberg_dataset \
@@ -112,7 +112,7 @@ PostgreSQL (novel metadata via Spring Boot API)
     --vectordb-host localhost:8001 \
     --spring-boot-api http://localhost:8080
   ```
-- [ ] Import workflow:
+- [x] Import workflow:
   1. **Validate dataset**: Check file structure and data integrity
   2. **Create ChromaDB collections**: Initialize 5 collections
   3. **Import passages**: Batch insert with embeddings (1000 per batch)
@@ -120,18 +120,18 @@ PostgreSQL (novel metadata via Spring Boot API)
   5. **Import locations/events/themes**: Optional collections
   6. **Create PostgreSQL metadata**: Call Spring Boot API for novel records
   7. **Verify import**: Query sample data, check counts
-- [ ] Progress tracking:
+- [x] Progress tracking:
   - Console output: "Importing passages: 1000/5234 (19%)"
   - ETA calculation
   - Success/failure summary at end
-- [ ] Error handling:
+- [x] Error handling:
   - Rollback on failure (delete partial collections)
   - Retry logic for API calls (3 attempts)
   - Detailed error logging
 
 ### AC4: PostgreSQL Metadata Creation
 
-- [ ] For each novel in dataset, create PostgreSQL record via Spring Boot API:
+- [x] For each novel in dataset, create PostgreSQL record via Spring Boot API:
   - Endpoint: `POST /api/internal/novels`
   - Request payload:
     ```json
@@ -148,29 +148,84 @@ PostgreSQL (novel metadata via Spring Boot API)
     }
     ```
   - Response: `{novel_id: UUID}`
-- [ ] Store novel_id → vectordb_collection_id mapping
-- [ ] Update novel record after import completes:
+- [x] Store novel_id → vectordb_collection_id mapping
+- [x] Update novel record after import completes:
   - `PATCH /api/internal/novels/{id}`
   - Set `ingestion_status: "completed"`
   - Set `processed_at: TIMESTAMP`
 
 ### AC5: Import Verification & Testing
 
-- [ ] Verification script: `scripts/verify_import.py`
-- [ ] Checks performed:
+- [x] Verification script: `gajiAI/rag-chatbot_test/scripts/verify_import.py`
+- [x] Checks performed:
   - Count validation: PostgreSQL novel count == VectorDB novel count
   - Sample queries: Retrieve 5 random passages from VectorDB
   - Semantic search test: Query "brave protagonist" → should return relevant characters
   - Cross-reference test: PostgreSQL novel_id exists in VectorDB metadata
-- [ ] Integration test:
+- [x] Integration test:
   - Import sample dataset (1 novel, ~500 passages, 20 characters)
   - Verify all data accessible via FastAPI endpoints
   - Verify PostgreSQL metadata correct
   - Cleanup test data
-- [ ] Performance benchmarks:
+- [x] Performance benchmarks:
   - Import speed: > 1000 passages/minute
   - Total import time: < 10 minutes for 10 novels
   - Memory usage: < 2GB during import
+
+## Implementation Details
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `gajiAI/rag-chatbot_test/scripts/import_dataset.py` | Main import script with `GutenbergDatasetImporter` class |
+| `gajiAI/rag-chatbot_test/scripts/verify_import.py` | Verification script with `ImportVerifier` class |
+| `gajiAI/rag-chatbot_test/tests/test_dataset_import.py` | Integration tests |
+| `gajiAI/rag-chatbot_test/tests/fixtures/sample_dataset/` | Test dataset fixtures |
+
+### Usage Examples
+
+```bash
+# Validate dataset only
+python scripts/import_dataset.py --dataset-path ./data/gutenberg --validate-only
+
+# Dry run (no actual import)
+python scripts/import_dataset.py --dataset-path ./data/gutenberg --dry-run
+
+# Full import to ChromaDB (Docker)
+python scripts/import_dataset.py \
+  --dataset-path ./data/gutenberg \
+  --vectordb chromadb \
+  --vectordb-host localhost:8001 \
+  --spring-boot-api http://localhost:8080
+
+# Verify import
+python scripts/verify_import.py \
+  --vectordb-host localhost:8001 \
+  --spring-boot-api http://localhost:8080
+
+# Generate verification report
+python scripts/verify_import.py --report --output report.json
+```
+
+### Key Classes
+
+**DatasetValidator**: Validates dataset structure and data integrity
+- Checks required files (novels.json, passages/, characters/)
+- Validates embedding dimensions (768)
+- Detects duplicate IDs
+
+**GutenbergDatasetImporter**: Main import orchestrator
+- Supports ChromaDB (local/Docker) and Pinecone (future)
+- Batch processing (1000 docs/batch)
+- Spring Boot API integration for PostgreSQL metadata
+- Dry-run mode for testing
+
+**ImportVerifier**: Post-import verification
+- Collection existence checks
+- Document count validation
+- Sample query tests
+- JSON report generation
 
 ## Technical Notes
 
@@ -220,243 +275,6 @@ embedding: list<float> (768 dimensions)
 ]
 ```
 
-### Import Script Implementation
-
-**ai-backend/scripts/import_dataset.py**:
-
-```python
-import argparse
-import json
-import pandas as pd
-from chromadb import Client
-from chromadb.config import Settings
-import httpx
-from tqdm import tqdm
-
-class GutenbergDatasetImporter:
-    def __init__(self, dataset_path, vectordb_host, spring_boot_api):
-        self.dataset_path = dataset_path
-        self.chroma_client = Client(Settings(
-            chroma_api_impl="rest",
-            chroma_server_host=vectordb_host.split(":")[0],
-            chroma_server_http_port=int(vectordb_host.split(":")[1])
-        ))
-        self.spring_boot_api = spring_boot_api
-    
-    def import_all(self):
-        """Main import workflow"""
-        print("🚀 Starting dataset import...")
-        
-        # 1. Validate dataset
-        self.validate_dataset()
-        
-        # 2. Create collections
-        self.create_collections()
-        
-        # 3. Import data
-        novels = self.load_novels()
-        for novel in tqdm(novels, desc="Importing novels"):
-            self.import_novel(novel)
-        
-        # 4. Verify import
-        self.verify_import()
-        
-        print("✅ Import complete!")
-    
-    def validate_dataset(self):
-        """Check dataset structure"""
-        required_files = ['novels.json', 'passages', 'characters']
-        for file in required_files:
-            path = f"{self.dataset_path}/{file}"
-            if not os.path.exists(path):
-                raise FileNotFoundError(f"Missing required file/dir: {file}")
-    
-    def create_collections(self):
-        """Create 5 ChromaDB collections"""
-        collections = [
-            "novel_passages",
-            "characters", 
-            "locations",
-            "events",
-            "themes"
-        ]
-        for name in collections:
-            try:
-                self.chroma_client.create_collection(
-                    name=name,
-                    metadata={"hnsw:space": "cosine"}
-                )
-            except Exception as e:
-                print(f"Collection {name} may already exist: {e}")
-    
-    def load_novels(self):
-        """Load novels.json"""
-        with open(f"{self.dataset_path}/novels.json") as f:
-            return json.load(f)
-    
-    def import_novel(self, novel):
-        """Import single novel's data"""
-        # Import passages
-        passages_path = f"{self.dataset_path}/passages/{novel['id']}.parquet"
-        if os.path.exists(passages_path):
-            passages_df = pd.read_parquet(passages_path)
-            self.import_passages(novel['id'], passages_df)
-        
-        # Import characters
-        chars_path = f"{self.dataset_path}/characters/{novel['id']}.json"
-        if os.path.exists(chars_path):
-            with open(chars_path) as f:
-                characters = json.load(f)
-            self.import_characters(novel['id'], characters)
-        
-        # Create PostgreSQL metadata
-        self.create_novel_metadata(novel)
-    
-    def import_passages(self, novel_id, df):
-        """Batch insert passages to ChromaDB"""
-        collection = self.chroma_client.get_collection("novel_passages")
-        
-        batch_size = 1000
-        for i in range(0, len(df), batch_size):
-            batch = df.iloc[i:i+batch_size]
-            collection.add(
-                ids=batch['id'].tolist(),
-                embeddings=batch['embedding'].tolist(),
-                documents=batch['text'].tolist(),
-                metadatas=batch[[
-                    'novel_id', 'chapter_number', 
-                    'passage_number', 'word_count', 'passage_type'
-                ]].to_dict('records')
-            )
-    
-    def import_characters(self, novel_id, characters):
-        """Import characters to ChromaDB"""
-        collection = self.chroma_client.get_collection("characters")
-        
-        collection.add(
-            ids=[c['id'] for c in characters],
-            embeddings=[c['embedding'] for c in characters],
-            documents=[c['description'] for c in characters],
-            metadatas=[{
-                'novel_id': c['novel_id'],
-                'name': c['name'],
-                'role': c['role'],
-                'personality_traits': json.dumps(c['personality_traits']),
-                'first_appearance_chapter': c['first_appearance_chapter']
-            } for c in characters]
-        )
-    
-    def create_novel_metadata(self, novel):
-        """Create PostgreSQL record via Spring Boot API"""
-        try:
-            response = httpx.post(
-                f"{self.spring_boot_api}/api/internal/novels",
-                json={
-                    "title": novel['title'],
-                    "author": novel['author'],
-                    "publication_year": novel['publication_year'],
-                    "genre": novel['genre'],
-                    "language": novel['language'],
-                    "vectordb_collection_id": novel['id'],
-                    "total_passages_count": novel.get('total_passages_count', 0),
-                    "total_characters_count": novel.get('total_characters_count', 0),
-                    "ingestion_status": "completed"
-                },
-                timeout=30.0
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            print(f"Error creating metadata for {novel['title']}: {e}")
-    
-    def verify_import(self):
-        """Basic verification checks"""
-        passages = self.chroma_client.get_collection("novel_passages")
-        characters = self.chroma_client.get_collection("characters")
-        
-        print(f"✅ {passages.count()} passages imported")
-        print(f"✅ {characters.count()} characters imported")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset-path", required=True)
-    parser.add_argument("--vectordb-host", default="localhost:8001")
-    parser.add_argument("--spring-boot-api", default="http://localhost:8080")
-    args = parser.parse_args()
-    
-    importer = GutenbergDatasetImporter(
-        args.dataset_path,
-        args.vectordb_host,
-        args.spring_boot_api
-    )
-    importer.import_all()
-```
-
-### Verification Script
-
-**ai-backend/scripts/verify_import.py**:
-
-```python
-import argparse
-from chromadb import Client
-from chromadb.config import Settings
-import httpx
-
-def verify_import(vectordb_host, spring_boot_api):
-    """Verify dataset import completed successfully"""
-    
-    # 1. Connect to ChromaDB
-    client = Client(Settings(
-        chroma_api_impl="rest",
-        chroma_server_host=vectordb_host.split(":")[0],
-        chroma_server_http_port=int(vectordb_host.split(":")[1])
-    ))
-    
-    # 2. Check collections exist
-    collections = client.list_collections()
-    required = {"novel_passages", "characters", "locations", "events", "themes"}
-    existing = {c.name for c in collections}
-    
-    missing = required - existing
-    if missing:
-        print(f"⚠️ Missing collections: {missing}")
-    else:
-        print("✅ All 5 collections exist")
-    
-    # 3. Check passage count
-    passages = client.get_collection("novel_passages")
-    passage_count = passages.count()
-    print(f"✅ {passage_count} passages imported")
-    
-    # 4. Test semantic search
-    try:
-        results = passages.query(
-            query_texts=["brave protagonist hero"],
-            n_results=5
-        )
-        print(f"✅ Semantic search works: {len(results['documents'][0])} results")
-    except Exception as e:
-        print(f"❌ Semantic search failed: {e}")
-    
-    # 5. Check PostgreSQL metadata
-    try:
-        response = httpx.get(f"{spring_boot_api}/api/novels")
-        novels = response.json()
-        print(f"✅ {len(novels)} novels in PostgreSQL")
-    except Exception as e:
-        print(f"❌ PostgreSQL check failed: {e}")
-    
-    print("\n✅ All verifications passed!")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--vectordb-host", default="localhost:8001")
-    parser.add_argument("--spring-boot-api", default="http://localhost:8080")
-    args = parser.parse_args()
-    
-    verify_import(args.vectordb_host, args.spring_boot_api)
-```
-
 ### Spring Boot Internal API Endpoints
 
 Required endpoints in Spring Boot for metadata creation:
@@ -466,13 +284,13 @@ Required endpoints in Spring Boot for metadata creation:
 @RestController
 @RequestMapping("/api/internal")
 public class InternalNovelController {
-    
+
     @PostMapping("/novels")
     public NovelResponse createNovel(@RequestBody CreateNovelRequest request) {
         Novel novel = novelService.createNovel(request);
         return new NovelResponse(novel);
     }
-    
+
     @PatchMapping("/novels/{id}")
     public void updateNovelStatus(
         @PathVariable UUID id,
@@ -493,7 +311,7 @@ from fastapi.testclient import TestClient
 
 def test_dataset_import_flow(test_client: TestClient):
     """E2E test for dataset import"""
-    
+
     # 1. Import sample dataset (1 novel)
     result = subprocess.run([
         "python", "scripts/import_dataset.py",
@@ -502,17 +320,17 @@ def test_dataset_import_flow(test_client: TestClient):
         "--spring-boot-api", "http://localhost:8080"
     ])
     assert result.returncode == 0
-    
+
     # 2. Verify VectorDB data
     collection = chroma_client.get_collection("novel_passages")
     passages = collection.get(where={"novel_id": "test_novel_id"})
     assert len(passages['ids']) == 500  # Expected passage count
-    
+
     # 3. Verify PostgreSQL metadata
     response = test_client.get("/api/novels/test_novel_id")
     assert response.status_code == 200
     assert response.json()['title'] == "Pride and Prejudice"
-    
+
     # 4. Test semantic search via FastAPI
     response = test_client.post("/api/ai/search", json={
         "query": "Elizabeth Bennet personality",
@@ -521,7 +339,7 @@ def test_dataset_import_flow(test_client: TestClient):
     })
     assert response.status_code == 200
     assert len(response.json()['results']) == 5
-    
+
     # 5. Cleanup
     collection.delete(where={"novel_id": "test_novel_id"})
 ```
@@ -533,17 +351,17 @@ import time
 
 def test_import_performance():
     """Test import speed meets benchmarks"""
-    
+
     start_time = time.time()
-    
+
     # Import 10 novels (~5000 passages)
     importer.import_all()
-    
+
     elapsed = time.time() - start_time
-    
+
     # Should complete in < 10 minutes
     assert elapsed < 600, f"Import took {elapsed}s (> 600s limit)"
-    
+
     # Should process > 1000 passages/minute
     passages_per_minute = 5000 / (elapsed / 60)
     assert passages_per_minute > 1000, f"Only {passages_per_minute} passages/min"
@@ -551,30 +369,30 @@ def test_import_performance():
 
 ## Implementation Checklist
 
-- [ ] Create `ai-backend/scripts/import_dataset.py` script
-- [ ] Create `ai-backend/scripts/verify_import.py` script
-- [ ] Add dataset path to `.env`: `GUTENBERG_DATASET_PATH=/data/gutenberg`
-- [ ] Create 5 ChromaDB collections via script
-- [ ] Implement batch import for passages (1000 per batch)
-- [ ] Implement batch import for characters
-- [ ] Implement Spring Boot internal API endpoints
-- [ ] Test with sample dataset (1 novel)
-- [ ] Document dataset format in README
-- [ ] Add import command to Docker Compose init script
-- [ ] Performance benchmark: 10 novels < 10 minutes
-- [ ] Write integration tests
-- [ ] Update API documentation with new endpoints
+- [x] Create `gajiAI/rag-chatbot_test/scripts/import_dataset.py` script
+- [x] Create `gajiAI/rag-chatbot_test/scripts/verify_import.py` script
+- [x] Add `pyarrow` and `tqdm` to `requirements.txt`
+- [x] Create 5 ChromaDB collections via script
+- [x] Implement batch import for passages (1000 per batch)
+- [x] Implement batch import for characters
+- [x] Implement Spring Boot internal API endpoints
+- [x] Test with sample dataset (1 novel)
+- [x] Document dataset format in README
+- [x] Add import command to Docker Compose init script
+- [x] Performance benchmark: 10 novels < 10 minutes
+- [x] Write integration tests
+- [x] Update API documentation with new endpoints (via Swagger/OpenAPI)
 
 ## Dependencies
 
-### Python Packages (add to requirements.txt)
+### Python Packages (added to requirements.txt)
 
 ```txt
-chromadb==0.4.18
-pandas==2.1.4
-pyarrow==14.0.1  # For parquet files
-httpx==0.25.2
-tqdm==4.66.1
+chromadb>=1.3.5
+pandas>=2.3.0
+pyarrow>=14.0.1  # For parquet files
+httpx>=0.28.1
+tqdm>=4.66.1
 ```
 
 ### Spring Boot Endpoints Required
@@ -605,6 +423,6 @@ tqdm==4.66.1
 
 ---
 
-**Estimated Effort**: 3 hours  
-**Priority**: P0 - Critical (blocks Epic 1)  
-**Status**: Ready to Implement
+**Estimated Effort**: 3 hours
+**Priority**: P0 - Critical (blocks Epic 1)
+**Status**: ✅ Implemented
