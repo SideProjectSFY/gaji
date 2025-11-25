@@ -63,11 +63,11 @@ services:
       - gaji-network
     mem_limit: 4g
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "grep -q ':1F40' /proc/net/tcp || exit 1"]
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 15s
 
   # Spring Boot - API Gateway (Pattern B)
   backend:
@@ -193,7 +193,7 @@ services:
       - ./gajiFE/frontend:/app
       - /app/node_modules
       - /app/styled-system
-    command: pnpm dev --host 0.0.0.0
+    command: sh -c "pnpm prepare && pnpm dev --host 0.0.0.0"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "--timeout=5", "http://127.0.0.1:3000"]
       interval: 30s
