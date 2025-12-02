@@ -329,6 +329,10 @@ erDiagram
     users ||--o{ conversations : owns
     users ||--o{ conversation_likes : likes
     users ||--o{ conversation_memos : writes
+    users ||--o{ scenario_likes : likes
+    users ||--o{ comments : writes
+    users ||--o{ notifications : receives
+    users ||--o{ user_achievements : earns
 
     novels ||--o{ base_scenarios : "has base scenarios"
 
@@ -339,11 +343,17 @@ erDiagram
     root_user_scenarios ||--o{ scenario_setting_modifications : "has setting mods"
     root_user_scenarios ||--o{ leaf_user_scenarios : "is forked to"
     root_user_scenarios ||--o{ conversations : "used in"
+    root_user_scenarios ||--o{ scenario_likes : "receives likes"
+    root_user_scenarios ||--o{ comments : "has comments"
+    root_user_scenarios ||--o{ scenario_tags : "has tags"
 
     leaf_user_scenarios ||--o{ scenario_character_changes : "has character changes"
     leaf_user_scenarios ||--o{ scenario_event_alterations : "has event alterations"
     leaf_user_scenarios ||--o{ scenario_setting_modifications : "has setting mods"
     leaf_user_scenarios ||--o{ conversations : "used in"
+    leaf_user_scenarios ||--o{ scenario_likes : "receives likes"
+    leaf_user_scenarios ||--o{ comments : "has comments"
+    leaf_user_scenarios ||--o{ scenario_tags : "has tags"
 
     conversations ||--o{ conversation_message_links : "contains messages"
     conversations ||--o{ conversations : "forked from"
@@ -352,6 +362,8 @@ erDiagram
 
     conversation_message_links }o--|| messages : references
     messages }o--|| users : "sent by"
+
+    tags ||--o{ scenario_tags : "categorizes"
 
     scenario_character_changes }o--|| root_user_scenarios : "modifies root"
     scenario_character_changes }o--|| leaf_user_scenarios : "modifies leaf"
@@ -478,10 +490,11 @@ erDiagram
         UUID base_scenario_id FK
         UUID user_id FK
         VARCHAR scenario_type
-        DECIMAL quality_score
         BOOLEAN is_private
+        BOOLEAN is_active
         INTEGER fork_count
         INTEGER conversation_count
+        INTEGER like_count
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
@@ -491,9 +504,10 @@ erDiagram
         UUID root_scenario_id FK
         UUID user_id FK
         VARCHAR scenario_type
-        DECIMAL quality_score
         BOOLEAN is_private
+        BOOLEAN is_active
         INTEGER conversation_count
+        INTEGER like_count
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
@@ -501,7 +515,8 @@ erDiagram
     conversations {
         UUID id PK
         UUID user_id FK
-        UUID scenario_id FK
+        UUID root_scenario_id FK
+        UUID leaf_scenario_id FK
         VARCHAR scenario_type
         UUID parent_conversation_id FK
         BOOLEAN is_root
@@ -518,7 +533,61 @@ erDiagram
         VARCHAR role
         TEXT content
         VARCHAR emotion
+        TEXT[] secondary_emotions
         TIMESTAMP created_at
+    }
+
+    scenario_likes {
+        UUID user_id PK_FK
+        UUID root_scenario_id PK_FK
+        UUID leaf_scenario_id PK_FK
+        TIMESTAMP created_at
+    }
+
+    comments {
+        UUID id PK
+        UUID user_id FK
+        UUID root_scenario_id FK
+        UUID leaf_scenario_id FK
+        TEXT content
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    tags {
+        UUID id PK
+        VARCHAR name UK
+        TIMESTAMP created_at
+    }
+
+    scenario_tags {
+        UUID root_scenario_id PK_FK
+        UUID leaf_scenario_id PK_FK
+        UUID tag_id PK_FK
+        TIMESTAMP created_at
+    }
+
+    notifications {
+        UUID id PK
+        UUID user_id FK
+        VARCHAR type
+        TEXT content
+        BOOLEAN is_read
+        TIMESTAMP created_at
+    }
+
+    user_achievements {
+        UUID id PK
+        UUID user_id FK
+        VARCHAR achievement_type
+        TIMESTAMP earned_at
+    }
+
+    system_settings {
+        VARCHAR key PK
+        TEXT value
+        TEXT description
+        TIMESTAMP updated_at
     }
 ```
 
@@ -540,6 +609,9 @@ CREATE TABLE users (
     password_hash VARCHAR(60) NOT NULL,  -- BCrypt hash
     bio TEXT CHECK (LENGTH(bio) <= 500),
     avatar_url VARCHAR(500),
+    role VARCHAR(20) DEFAULT 'USER' CHECK (role IN ('USER', 'ADMIN', 'MODERATOR')),
+    is_active BOOLEAN DEFAULT true,
+    last_login_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -553,6 +625,9 @@ CREATE TABLE users (
 - `password_hash`: BCrypt hashed password (cost factor 10)
 - `bio`: User biography (max 500 chars)
 - `avatar_url`: CDN URL to avatar image
+- `role`: User role (USER, ADMIN, MODERATOR)
+- `is_active`: Account status
+- `last_login_at`: Last login timestamp
 - `created_at`: Account creation timestamp
 - `updated_at`: Last profile update timestamp
 
@@ -580,6 +655,8 @@ CREATE TABLE novels (
     copyright_note TEXT,  -- e.g., 'Public domain in the USA'
     cover_image_url VARCHAR(500),
     description TEXT,
+    status VARCHAR(20) DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'PUBLISHED', 'ARCHIVED')),
+    metadata JSONB,
     is_verified BOOLEAN DEFAULT false,
     creator_id UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -603,6 +680,8 @@ CREATE TABLE novels (
 - `copyright_note`: Detailed copyright information
 - `cover_image_url`: CDN URL to cover image
 - `description`: Brief synopsis or description
+- `status`: Novel status (DRAFT, PUBLISHED, ARCHIVED)
+- `metadata`: Additional JSON metadata
 - `is_verified`: Admin verification status
 - `creator_id`: User who uploaded the metadata
 - `created_at`: Upload timestamp
@@ -638,6 +717,8 @@ CREATE TABLE base_scenarios (
     content_summary TEXT,  -- Overall content summary (200-300 chars)
 
     tags TEXT[],  -- Tags for categorization and search
+    difficulty_level VARCHAR(20) DEFAULT 'MEDIUM' CHECK (difficulty_level IN ('EASY', 'MEDIUM', 'HARD')),
+    estimated_play_time INTEGER, -- In minutes
     is_verified BOOLEAN DEFAULT false,
     creator_id UUID REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -658,6 +739,8 @@ CREATE TABLE base_scenarios (
 - `theme_summary`: Brief theme summary (for UI preview)
 - `content_summary`: Overall summary (200-300 chars max)
 - `tags`: Array of tags (e.g., '{"romance", "conflict", "resolution"}')
+- `difficulty_level`: Difficulty level (EASY, MEDIUM, HARD)
+- `estimated_play_time`: Estimated play time in minutes
 - `is_verified`: Verification status
 - `creator_id`: User who created this base scenario
 - `created_at`: Creation timestamp
@@ -681,12 +764,16 @@ CREATE TABLE root_user_scenarios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     base_scenario_id UUID REFERENCES base_scenarios(id) NOT NULL,
     user_id UUID REFERENCES users(id) NOT NULL,
+    title VARCHAR(255),
+    description TEXT,
     scenario_type VARCHAR(50) NOT NULL CHECK (scenario_type IN (
         'CHARACTER_CHANGE',
         'EVENT_ALTERATION',
         'SETTING_MODIFICATION'
     )),
-    quality_score DECIMAL(3,2) DEFAULT 0.0 CHECK (quality_score >= 0.0 AND quality_score <= 1.0),
+    difficulty_level VARCHAR(20) DEFAULT 'MEDIUM' CHECK (difficulty_level IN ('EASY', 'MEDIUM', 'HARD')),
+    estimated_play_time INTEGER, -- In minutes
+    tags TEXT[],
     is_private BOOLEAN DEFAULT false,
     fork_count INTEGER DEFAULT 0,
     conversation_count INTEGER DEFAULT 0,
@@ -824,7 +911,9 @@ CREATE TABLE leaf_user_scenarios (
         'EVENT_ALTERATION',
         'SETTING_MODIFICATION'
     )),
-    quality_score DECIMAL(3,2) DEFAULT 0.0 CHECK (quality_score >= 0.0 AND quality_score <= 1.0),
+    difficulty_level VARCHAR(20) DEFAULT 'MEDIUM' CHECK (difficulty_level IN ('EASY', 'MEDIUM', 'HARD')),
+    estimated_play_time INTEGER, -- In minutes
+    tags TEXT[],
     is_private BOOLEAN DEFAULT false,
     conversation_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -858,6 +947,9 @@ CREATE TABLE conversations (
     is_root BOOLEAN DEFAULT true,  -- true = root conversation (can fork), false = forked (cannot fork)
 
     -- Metadata
+    title VARCHAR(255),
+    summary TEXT,
+    tags TEXT[],
     message_count INTEGER DEFAULT 0,
     like_count INTEGER DEFAULT 0,
     is_private BOOLEAN DEFAULT false,
@@ -914,6 +1006,7 @@ Individual conversation messages (user or AI).
 ```sql
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     sender_id UUID REFERENCES users(id),  -- Nullable: null = AI message
     role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
     content TEXT NOT NULL,
@@ -992,13 +1085,118 @@ CREATE TABLE conversation_memos (
 
 ---
 
+### Social Feature Tables (Continued)
+
+#### `scenario_likes`
+
+User likes on scenarios (root or leaf).
+
+```sql
+CREATE TABLE scenario_likes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    scenario_id UUID NOT NULL,
+    scenario_type VARCHAR(50) NOT NULL CHECK (scenario_type IN ('ROOT', 'LEAF')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, scenario_id)
+);
+```
+
+---
+
+#### `scenario_comments`
+
+User comments on scenarios.
+
+```sql
+CREATE TABLE scenario_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    scenario_id UUID NOT NULL,
+    scenario_type VARCHAR(50) NOT NULL CHECK (scenario_type IN ('ROOT', 'LEAF')),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+#### `tags`
+
+Tags for scenarios.
+
+```sql
+CREATE TABLE tags (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(50) NOT NULL UNIQUE
+);
+```
+
+---
+
+#### `scenario_tags`
+
+Many-to-many relationship between scenarios and tags.
+
+```sql
+CREATE TABLE scenario_tags (
+    scenario_id UUID NOT NULL,
+    scenario_type VARCHAR(50) NOT NULL CHECK (scenario_type IN ('ROOT', 'LEAF')),
+    tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (scenario_id, tag_id)
+);
+```
+
+---
+
 ### Additional System Tables
 
-#### `user_notifications`
+#### `notifications`
 
-System notifications for users (conversation completion, new followers, etc.).
+System notifications for users.
 
-````sql
+```sql
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    related_link VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+#### `user_achievements`
+
+User achievements.
+
+```sql
+CREATE TABLE user_achievements (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    achievement_id VARCHAR(50) NOT NULL,
+    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, achievement_id)
+);
+```
+
+---
+
+#### `system_settings`
+
+System-wide settings.
+
+```sql
+CREATE TABLE system_settings (
+    key VARCHAR(50) PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
 ---
 
 ## VectorDB Schema
@@ -1036,7 +1234,7 @@ System notifications for users (conversation completion, new followers, etc.).
     "document": "Passage text content (200-500 words)",
     "embedding": [768-dimensional float vector from Gemini Embedding API]
 }
-````
+```
 
 **Indexing Strategy**:
 
@@ -1300,7 +1498,6 @@ CREATE INDEX idx_root_user_scenarios_user_id ON root_user_scenarios(user_id);
 CREATE INDEX idx_root_user_scenarios_base_scenario_id ON root_user_scenarios(base_scenario_id);
 CREATE INDEX idx_root_user_scenarios_scenario_type ON root_user_scenarios(scenario_type);
 CREATE INDEX idx_root_user_scenarios_is_private ON root_user_scenarios(is_private);
-CREATE INDEX idx_root_user_scenarios_quality_score ON root_user_scenarios(quality_score);
 
 -- Leaf user scenario indexes
 CREATE INDEX idx_leaf_user_scenarios_root_scenario_id ON leaf_user_scenarios(root_scenario_id);
@@ -1630,6 +1827,20 @@ erDiagram
     users ||--o{ messages : "sends"
     users ||--o{ conversation_likes : "likes"
     users ||--o{ conversation_memos : "writes memo"
+    users ||--o{ scenario_likes : "likes scenario"
+    users ||--o{ scenario_comments : "comments on scenario"
+    users ||--o{ notifications : "receives"
+    users ||--o{ user_achievements : "unlocks"
+
+    root_user_scenarios ||--o{ scenario_likes : "liked"
+    leaf_user_scenarios ||--o{ scenario_likes : "liked"
+
+    root_user_scenarios ||--o{ scenario_comments : "commented"
+    leaf_user_scenarios ||--o{ scenario_comments : "commented"
+
+    tags ||--o{ scenario_tags : "tagged"
+    root_user_scenarios ||--o{ scenario_tags : "tagged"
+    leaf_user_scenarios ||--o{ scenario_tags : "tagged"
 
     novels ||--o{ base_scenarios : "has base scenarios"
 
@@ -1708,7 +1919,6 @@ erDiagram
         UUID base_scenario_id FK
         UUID user_id FK
         VARCHAR scenario_type
-        DECIMAL quality_score
         BOOLEAN is_private
         INTEGER fork_count
         INTEGER conversation_count
@@ -1721,7 +1931,6 @@ erDiagram
         UUID root_scenario_id FK
         UUID user_id FK
         VARCHAR scenario_type
-        DECIMAL quality_score
         BOOLEAN is_private
         INTEGER conversation_count
         TIMESTAMP created_at
@@ -1816,6 +2025,57 @@ erDiagram
         UUID conversation_id FK
         TEXT content
         TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    scenario_likes {
+        UUID user_id PK_FK
+        UUID scenario_id PK
+        VARCHAR scenario_type
+        TIMESTAMP created_at
+    }
+
+    scenario_comments {
+        UUID id PK
+        UUID user_id FK
+        UUID scenario_id
+        VARCHAR scenario_type
+        TEXT content
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    tags {
+        UUID id PK
+        VARCHAR name
+    }
+
+    scenario_tags {
+        UUID scenario_id PK
+        VARCHAR scenario_type
+        UUID tag_id PK_FK
+    }
+
+    notifications {
+        UUID id PK
+        UUID user_id FK
+        VARCHAR type
+        TEXT content
+        BOOLEAN is_read
+        VARCHAR related_link
+        TIMESTAMP created_at
+    }
+
+    user_achievements {
+        UUID user_id PK_FK
+        VARCHAR achievement_id PK
+        TIMESTAMP unlocked_at
+    }
+
+    system_settings {
+        VARCHAR key PK
+        TEXT value
+        TEXT description
         TIMESTAMP updated_at
     }
 ```
