@@ -165,79 +165,10 @@ Tone: Culturally aware, reflective on universal vs. context-specific themes.
 
 - Prompts stored in `resources/prompts/` as Mustache templates
 - Scenario JSONB deserialized to strongly-typed DTOs for template population
-- Token counting using custom tokenizer for Local LLM (aim for 600-800 tokens)
+- Token counting using Gemini tokenizer
 - Cache key: `{scenario_id}:{character_name}` (Guava cache, 5-min TTL)
 
 **Estimated Effort**: 8 hours
-
----
-
-### Story 2.2: Conversation Context Window Manager
-
-**Priority: P0 - Critical**
-
-**Description**: Implement sliding window context management that maintains scenario definition + recent conversation history within Local LLM's token limits while preventing timeline drift.
-
-**Acceptance Criteria**:
-
-- [ ] ContextWindowService with method: `buildContextWindow(Scenario scenario, List<Message> conversationHistory, String characterName)`
-- [ ] Token allocation strategy:
-  - Scenario prompt: 600-800 tokens (from Story 2.1)
-  - Conversation history: 1,500-1,700 tokens
-  - Response buffer: 800 tokens
-  - Total: ~3,500 tokens (safe for Local LLM's 4,096 limit)
-- [ ] Sliding window: keep last 10-15 messages, drop older messages
-- [ ] Scenario context re-injection every 10 turns (prevents AI "forgetting" timeline)
-- [ ] Token counting for message history using custom tokenizer
-- [ ] Truncation strategy: if history exceeds limit, remove oldest messages first
-- [ ] System message includes: scenario prompt + "conversation started {timestamp}"
-- [ ] Unit tests for token counting accuracy
-- [ ] Integration test: 20-message conversation maintains scenario consistency
-
-**Context Window Structure**:
-
-```json
-{
-  "messages": [
-    {
-      "role": "system",
-      "content": "{generated scenario prompt from Story 2.1}"
-    },
-    {
-      "role": "system",
-      "content": "Conversation started 2025-11-12 14:30 UTC. Remember this timeline throughout."
-    },
-    {
-      "role": "user",
-      "content": "How did being in Slytherin change you?"
-    },
-    {
-      "role": "assistant",
-      "content": "Being sorted into Slytherin was..."
-    }
-    // ... last 10-15 messages
-  ]
-}
-````
-
-**Re-injection Logic** (every 10 turns):
-
-```
-IF (message_count % 10 == 0) {
-  Insert system message: "TIMELINE REMINDER: {condensed scenario prompt}"
-}
-```
-
-**Technical Notes**:
-
-- Use custom tokenizer for accurate token counting with Local LLM
-- Message trimming preserves user-assistant pairs (don't orphan messages)
-- Scenario prompt condensed for re-injection: 300-400 tokens (vs. 600-800 initial)
-- Database query fetches only last 20 messages (optimization)
-
-**Estimated Effort**: 6 hours
-
----
 
 ### Story 2.3: Multi-Timeline Character Consistency
 
@@ -290,7 +221,7 @@ public void validateConsistency(Scenario scenario, String characterName) {
 
 - Personality extraction uses keyword matching on scenario JSONB
 - Temperature settings stored in `application.yml`, overridable per scenario
-- Consistency checks run during scenario creation (Story 1.5 validation)
+- Consistency checks run during scenario creation (Story 1.2 validation)
 
 **Estimated Effort**: 5 hours
 
@@ -364,7 +295,7 @@ public void testHermioneInSlytherin() {
 **Technical Notes**:
 
 - Budget 4-5 hours for iterative prompt testing (vs. 6-8 for knowledge-boundary approach)
-- Use Local LLM (Llama-2-7B) for initial tests, Mistral-7B for final validation
+- Use Gemini 2.5 Flash for all tests
 - Document all prompt failures and refinements in `docs/prompt-engineering-log.md`
 - Final templates committed to `resources/prompts/v1.0/`
 
@@ -454,7 +385,7 @@ public void testHermioneInSlytherin() {
 
 - Mitigation: **Gemini Safety Settings** (BLOCK_MEDIUM_AND_ABOVE for all harm categories)
 - Mitigation: VectorDB cultural context validation via FastAPI semantic search
-- Mitigation: User-provided cultural context reviewed before publish (Story 1.5 from Epic 1)
+- Mitigation: User-provided cultural context reviewed before publish (Story 1.2 from Epic 1)
 - Mitigation: Community reporting (Phase 2) for offensive scenarios
 
 **Risk 5: Long polling overhead slows down UI**
@@ -563,13 +494,13 @@ public void testHermioneInSlytherin() {
    **A**: Not in MVP. Single character per conversation keeps prompts simple. Phase 2 feature.
 
 2. **Q**: How do we handle offensive or inappropriate alternate timelines in prompts?
-   **A**: Validation system (Story 1.5) uses Local LLM to flag offensive content. Human review for edge cases.
+   **A**: Validation system uses simple length checks and keyword filtering. Human review for edge cases.
 
 3. **Q**: Should temperature settings be user-configurable?
    **A**: No. Temperature tuned per scenario type by system. User customization creates quality control nightmare.
 
 4. **Q**: What if character doesn't exist in alternate timeline? (e.g., "What if Hermione never went to Hogwarts" → how to converse with her?)
-   **A**: Scenario validation (Story 1.5) catches this. Prompt becomes: "You are Hermione who never attended Hogwarts. Discuss your Muggle life."
+   **A**: Scenario validation (Story 1.2) catches this. Prompt becomes: "You are Hermione who never attended Hogwarts. Discuss your Muggle life."
 
 ## Definition of Done
 
@@ -593,3 +524,4 @@ public void testHermioneInSlytherin() {
 **Target Completion**: Week 2, Day 5 (5 working days)
 
 **Estimated Total Effort**: 25 hours (achievable within 1 week for 1-2 engineers)
+````
