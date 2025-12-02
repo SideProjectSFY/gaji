@@ -1226,8 +1226,8 @@ Response:
   - [ ] Cost dashboard showing accurate spend data
   - [ ] Budget alerts configured
 - [ ] README documentation complete with setup instructions
-- [ ] .env.example provided with all required variables (LLM_MODEL_PATH, LLM_MODEL_TYPE)
-- [ ] Local LLM model download instructions documented
+- [ ] .env.example provided with all required variables (GEMINI_API_KEY)
+- [ ] Gemini API key configuration documented
 - [ ] CI/CD pipeline configured (optional for MVP, recommended)
 - [ ] All services accessible at documented URLs
 - [ ] Integration tests passing (inter-service communication + LLM pipeline)
