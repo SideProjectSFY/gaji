@@ -449,7 +449,7 @@ public ResponseEntity<byte[]> generateOgImage(@PathVariable UUID id) {
 **Risk 2: Forking creates contradictory meta-scenarios**
 
 - Mitigation: Client-side validation before fork submission
-- Mitigation: Local LLM validation (Story 1.5) checks coherence
+- Mitigation: Simple length validation checks basic coherence
 - Mitigation: User can report contradictory scenarios (Phase 2 feature)
 
 **Risk 3: Social sharing doesn't drive viral growth**
@@ -462,7 +462,7 @@ public ResponseEntity<byte[]> generateOgImage(@PathVariable UUID id) {
 **Risk 4: Search doesn't return relevant results**
 
 - Mitigation: Weighted ranking (title > parameters > book)
-- Mitigation: Quality score boost for high-rated scenarios
+- Mitigation: Boost for high-engagement scenarios (likes/forks)
 - Mitigation: Search analytics identify poor queries for optimization
 - Mitigation: Autocomplete guides users to successful searches
 
@@ -522,7 +522,7 @@ public ResponseEntity<byte[]> generateOgImage(@PathVariable UUID id) {
    **A**: Not in MVP. Scenarios only. Phase 2 can add conversation text indexing.
 
 4. **Q**: How to handle offensive scenario sharing on social media?
-   **A**: Validation system (Story 1.5) filters pre-publish. User reports → manual review → hide scenario + update og:image cache.
+   **A**: Validation system (Story 1.2) filters pre-publish. User reports → manual review → hide scenario + update og:image cache.
 
 5. **Q**: Should we track which social platforms users share to?
    **A**: Yes. Log share events with platform (Twitter/Reddit/Discord) for analytics. Privacy-safe (no user data).

@@ -63,11 +63,11 @@ services:
       - gaji-network
     mem_limit: 4g
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "grep -q ':1F40' /proc/net/tcp || exit 1"]
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 15s
 
   # Spring Boot - API Gateway (Pattern B)
   backend:
@@ -141,7 +141,10 @@ services:
       - ./gajiAI/rag-chatbot_test:/app
     healthcheck:
       test:
-        ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/health'')"',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -167,35 +170,46 @@ services:
       - gaji-network
     volumes:
       - ./gajiAI/rag-chatbot_test:/app
-      - ./data:/data  # Mount dataset directory
+      - ./data:/data # Mount dataset directory
     working_dir: /app
     entrypoint: ["python", "scripts/import_dataset.py"]
-    command: ["--dataset-path", "/data/gutenberg_dataset", "--vectordb", "chromadb", "--vectordb-host", "chromadb:8000", "--spring-boot-api", "http://backend:8080"]
+    command:
+      [
+        "--dataset-path",
+        "/data/gutenberg_dataset",
+        "--vectordb",
+        "chromadb",
+        "--vectordb-host",
+        "chromadb:8000",
+        "--spring-boot-api",
+        "http://backend:8080",
+      ]
     profiles:
-      - import  # Only run with: docker-compose --profile import run data-import
+      - import # Only run with: docker-compose --profile import run data-import
+
 
   # Vue.js Frontend (Pattern B: talks to Spring Boot only)
-  frontend:
-    build:
-      context: ./gajiFE
-      dockerfile: Dockerfile.dev
-    container_name: gaji-frontend
-    environment:
-      # Pattern B: Frontend → Spring Boot ONLY
-      VITE_API_BASE_URL: http://localhost:8080/api/v1
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-    networks:
-      - gaji-network
-    volumes:
-      - ./gajiFE/frontend:/app
-      - /app/node_modules
-      - /app/styled-system
-    command: pnpm dev --host 0.0.0.0
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "--timeout=5", "http://127.0.0.1:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  #frontend:
+  #  build:
+  #    context: ./gajiFE
+  #    dockerfile: Dockerfile.dev
+  #  container_name: gaji-frontend
+  #  environment:
+  #    # Pattern B: Frontend → Spring Boot ONLY
+  #    VITE_API_BASE_URL: http://localhost:8080/api/v1
+  #  ports:
+  #    - "3000:3000"
+  #  depends_on:
+  #    - backend
+  #  networks:
+  #    - gaji-network
+  #  volumes:
+  #    - ./gajiFE/frontend:/app
+  #    - /app/node_modules
+  #    - /app/styled-system
+  #  command: sh -c "pnpm prepare && pnpm dev --host 0.0.0.0"
+  #  healthcheck:
+  #    test: ["CMD", "wget", "-qO-", "--timeout=5", "http://127.0.0.1:3000"]
+  #    interval: 30s
+  #    timeout: 10s
+  #    retries: 3

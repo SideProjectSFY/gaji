@@ -76,7 +76,6 @@ scenario_template:
     book_id_required: true
     at_least_one_filled: true
     min_length_per_field: 10
-  # Removed: quality_score (deprecated in v1.1)
   metadata:
     conversation_count: 0 # Auto-incremented
     fork_count: 0 # Auto-incremented
@@ -85,7 +84,6 @@ scenario_template:
 **Key Changes from Version 1.0**:
 
 - ✅ Added `book_id` as required field (enables book-centric navigation)
-- ✅ Removed `quality_score` (replaced with conversationCount and forkCount metrics)
 - ✅ Added explicit metadata tracking for engagement metrics
 - ✅ Base story now references book entity in database
 
@@ -318,7 +316,7 @@ Bad What If scenarios ("What if everyone was a dinosaur lol") pollute the platfo
 
 1. **Scenario Validation System**: GPT-4 reviews user-created scenarios for logical coherence before publication. Checks for contradictions, maintains character plausibility, ensures story knowledge accuracy (2 hours engineering).
 
-2. **Quality Scoring Algorithm**: Scenarios earn quality scores based on: fork count, conversation depth, user ratings, coherence checks. Low-quality scenarios filtered from discovery feeds (3 hours engineering).
+2. **Engagement Metrics**: Scenarios are evaluated based on: fork count, conversation depth, and user ratings. Low-engagement scenarios filtered from discovery feeds (3 hours engineering).
 
 3. **Template-Guided Creation**: Users don't freestyle scenarios—they select from structured templates:
 
@@ -372,7 +370,7 @@ Week 2 builds What If core features with relentless focus on essential value del
 
 **Scenario Discovery & Browse UI**: List view showing available What If scenarios filtered by book, scenario type, and popularity. Card interface displays scenario title, divergence point, fork count, and creator (5 hours). **Scenario Forking Backend**: Fork endpoint copies scenario, applies additional changes, and tracks parent_scenario_id. Supports meta-scenarios: "Hermione in Slytherin AND Ravenclaw Tom Riddle" (4 hours). **Week 2 total: 29 hours but parallelizable**.
 
-Week 3 delivers polish, testing, and deployment with production-ready quality. **Scenario Tree Visualization** uses recursive Vue components showing scenario → forked scenarios → meta-forks hierarchy with expand/collapse functionality (6 hours). **Conversation within Scenario**: Users can start multiple conversations in same scenario to explore different aspects. Conversation list grouped by scenario (4 hours). **Scenario metadata displays** fork count, conversations count, creator attribution, quality score visualization (3 hours). **Tree navigation total: 13 hours**.
+Week 3 delivers polish, testing, and deployment with production-ready quality. **Scenario Tree Visualization** uses recursive Vue components showing scenario → forked scenarios → meta-forks hierarchy with expand/collapse functionality (6 hours). **Conversation within Scenario**: Users can start multiple conversations in same scenario to explore different aspects. Conversation list grouped by scenario (4 hours). **Scenario metadata displays** fork count, conversations count, creator attribution (3 hours). **Tree navigation total: 13 hours**.
 
 Message management and conversation forking: Server-Sent Events streaming using Spring WebFlux publishes message chunks as they arrive from OpenAI (5 hours). Frontend consumes SSE stream with EventSource API, building message incrementally with loading indicators (3 hours). **Conversation forking within scenarios** to explore "what if within the what if" (3 hours). Context window management includes last 10 messages + scenario context + character adaptation prompt (4 hours). **Message/conversation total: 15 hours**.
 
@@ -623,9 +621,6 @@ Body: {
 
 **Changes**:
 
-- Removed `quality_score` column from `root_user_scenarios` and `leaf_user_scenarios` tables
-- Removed quality score from all API responses
-- Removed quality score filtering/sorting from UI
 - Replaced with engagement metrics: `conversationCount` and `forkCount`
 
 **Migration**: See `architecture.md` Section 11 for SQL migration scripts
