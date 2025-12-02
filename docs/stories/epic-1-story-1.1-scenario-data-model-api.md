@@ -32,7 +32,7 @@ Create the PostgreSQL database schema and Spring Boot REST API for managing What
 - [x] CRUD API endpoints: POST /api/scenarios, GET /api/scenarios/{id}, GET /api/scenarios, PUT /api/scenarios/{id}, DELETE /api/scenarios/{id}
 - [x] Scenario forking endpoint: POST /api/scenarios/{id}/fork
 - [x] Fork depth constraint enforced (max depth = 1, leaf scenarios cannot be forked)
-- [x] B-tree indexes on user_id, base_scenario_id, is_public, created_at (per existing migrations V4, V5)
+- [x] B-tree indexes on user_id, base_scenario_id, is_private, created_at (per existing migrations V4, V5)
 - [x] Hard delete pattern (CASCADE DELETE on leaf scenarios when root is deleted)
 - [x] Java domain models with Spring Data JPA
 - [x] Response time < 100ms for single scenario retrieval (achieved via simple JPA queries)
@@ -51,14 +51,17 @@ The implementation follows the **normalized relational design** from ERD.md rath
 ### Files Created
 
 **Entities:**
+
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/entity/RootUserScenario.java`
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/entity/LeafUserScenario.java`
 
 **Repositories:**
+
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/repository/RootUserScenarioRepository.java`
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/repository/LeafUserScenarioRepository.java`
 
 **DTOs:**
+
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/dto/CreateScenarioRequest.java`
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/dto/UpdateScenarioRequest.java`
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/dto/ForkScenarioRequest.java`
@@ -66,30 +69,33 @@ The implementation follows the **normalized relational design** from ERD.md rath
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/dto/ScenarioTreeResponse.java`
 
 **Service & Controller:**
+
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/service/ScenarioService.java`
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/controller/ScenarioController.java`
 
 **Exceptions:**
+
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/exception/ResourceNotFoundException.java`
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/exception/ForbiddenException.java`
 - `gajiBE/backend/src/main/java/com/gaji/corebackend/exception/BadRequestException.java`
 
 **Tests:**
+
 - `gajiBE/backend/src/test/java/com/gaji/corebackend/service/ScenarioServiceTest.java`
 - `gajiBE/backend/src/test/java/com/gaji/corebackend/controller/ScenarioControllerTest.java`
 
 ### API Endpoints
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/scenarios` | Create new root scenario | X-User-Id header |
-| GET | `/api/scenarios/{id}` | Get scenario by ID | Optional X-User-Id |
-| GET | `/api/scenarios` | List scenarios (pagination, filter, search) | Optional X-User-Id |
-| PUT | `/api/scenarios/{id}` | Update scenario | X-User-Id header |
-| DELETE | `/api/scenarios/{id}` | Delete scenario | X-User-Id header |
-| POST | `/api/scenarios/{id}/fork` | Fork a root scenario | X-User-Id header |
-| GET | `/api/scenarios/{id}/tree` | Get scenario tree with children | None |
-| GET | `/api/scenarios/count` | Get user's scenario count | X-User-Id header |
+| Method | Endpoint                   | Description                                 | Auth               |
+| ------ | -------------------------- | ------------------------------------------- | ------------------ |
+| POST   | `/api/scenarios`           | Create new root scenario                    | X-User-Id header   |
+| GET    | `/api/scenarios/{id}`      | Get scenario by ID                          | Optional X-User-Id |
+| GET    | `/api/scenarios`           | List scenarios (pagination, filter, search) | Optional X-User-Id |
+| PUT    | `/api/scenarios/{id}`      | Update scenario                             | X-User-Id header   |
+| DELETE | `/api/scenarios/{id}`      | Delete scenario                             | X-User-Id header   |
+| POST   | `/api/scenarios/{id}/fork` | Fork a root scenario                        | X-User-Id header   |
+| GET    | `/api/scenarios/{id}/tree` | Get scenario tree with children             | None               |
+| GET    | `/api/scenarios/count`     | Get user's scenario count                   | X-User-Id header   |
 
 ### Query Parameters (GET /api/scenarios)
 
