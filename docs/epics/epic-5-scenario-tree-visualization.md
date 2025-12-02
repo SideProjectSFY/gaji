@@ -151,7 +151,6 @@ Response (200 OK):
   "depth": 0,
   "fork_count": 3,
   "conversation_count": 42,
-  "quality_score": 85,
   "creator": {
     "username": "hermione_fan",
     "avatar_url": "https://..."
@@ -228,7 +227,7 @@ Response (200 OK):
     - Line thickness based on conversation_count (popular paths thicker)
   - Interaction:
     - Click node → navigate to scenario detail page
-    - Hover node → show tooltip with full title, creator, quality score
+    - Hover node → show tooltip with full title, creator, fork count
     - Expandable nodes: collapsed by default beyond depth 2
     - Click expand icon → load and render children
     - Double-click node → expand/collapse all descendants
