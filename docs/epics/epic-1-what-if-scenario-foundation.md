@@ -12,7 +12,7 @@ Users can begin exploring alternative timelines by creating structured "What If"
 
 **Week 1-2 of MVP development**
 
-## Stories (3 total, 26 hours)
+## Stories (2 total, 20 hours)
 
 ### Story 1.1: Scenario Data Model & API Foundation
 
@@ -133,78 +133,11 @@ Setting Modifications (Optional):
 
 ---
 
-### Story 1.3: Scenario Validation System with Gemini 2.5 Flash
-
-**Priority: P1 - High**
-
-**Story File**: `docs/stories/epic-1-story-1.3-scenario-validation-system.md`
-
-**Description**: Implement **Gemini 2.5 Flash via FastAPI** validation to ensure scenario coherence and prevent contradictions before publication.
-
-**Acceptance Criteria**:
-
-- [ ] **Validation service endpoint** (Spring Boot): POST /api/v1/scenarios/validate
-  - Spring Boot proxies to FastAPI: POST /api/ai/scenarios/validate
-  - FastAPI calls Gemini 2.5 Flash for validation analysis
-- [ ] **Gemini 2.5 Flash validation** via FastAPI checking for:
-  - Logical coherence (changes make sense given book context)
-  - Character plausibility (altered characters remain recognizable)
-  - Timeline consistency (no contradictions in cascading effects)
-  - Story knowledge accuracy (events/characters actually exist in book)
-- [ ] Validation score: 0-100 (threshold: 70+ to approve)
-- [ ] Validation response includes:
-  - Pass/Fail status
-  - Coherence score
-  - Specific issues found (if any)
-  - Suggestions for improvement
-- [ ] Frontend displays validation results before scenario creation
-- [ ] User can force-publish despite warnings
-- [ ] Validation results cached in Redis for 5 minutes (prevent duplicate calls)
-- [ ] Token budget: max **2,000 tokens per validation** (Gemini 2.5 Flash allows richer analysis)
-
-**Validation Prompt Template** (Gemini 2.5 Flash via FastAPI):
-
-```
-Analyze this "What If" scenario for logical coherence:
-
-Book: {base_story}
-Scenario Type: {scenario_type}
-Changes: {scenario_parameters}
-
-Evaluate:
-1. Do the changes make logical sense given the book's world?
-2. Would the character remain recognizable after these changes?
-3. Are there any contradictions in the cascading effects?
-4. Do the events/characters actually exist in the original book?
-
-Respond with JSON:
-{
-  "coherence_score": 0-100,
-  "issues": ["issue1", "issue2"],
-  "suggestions": ["suggestion1"]
-}
-```
-
-**Technical Notes**:
-
-- **API Gateway Pattern**: Frontend → Spring Boot → FastAPI → Gemini 2.5 Flash
-- **Gemini API cost**: ~$0.00015 per validation (2,000 tokens × $0.075 / 1M input)
-  - Example: 1,000 validations/month = $0.15 (negligible cost)
-- **Cache validation results** in Redis using scenario hash (5-minute TTL)
-- Validation runs async via FastAPI background task, shows loading spinner
-- Expected response time: **2-3 seconds** (Gemini 2.5 Flash inference)
-- Failed validations saved to PostgreSQL for quality analytics
-- **Retry logic**: 3 retries with exponential backoff for Gemini API failures
-
-**Estimated Effort**: 6 hours
-
----
-
 ## Epic-Level Acceptance Criteria
 
 - [ ] All three scenario types (Character, Event, Setting) functional and tested
 - [ ] Scenario creation flow takes < 3 minutes for average user
-- [ ] Validation prevents 90%+ of nonsensical scenarios from being published
+- [ ] Validation prevents empty or too short scenarios from being published
 - [ ] Database supports minimum 100,000 scenarios without performance degradation
 - [ ] API response times < 200ms for list queries, < 100ms for single retrieval
 - [ ] Mobile experience functional on 375px+ width devices
@@ -223,7 +156,6 @@ Respond with JSON:
 - **Epic 0**: Project Setup & Infrastructure (Spring Boot, PostgreSQL, FastAPI, VectorDB, Redis)
 - **FastAPI AI Service**: Deployed with Gemini 2.5 Flash API key configured
 - **VectorDB (ChromaDB dev / Pinecone prod)**: Seeded with characters, passages, events collections
-- **Redis**: For validation result caching (5-minute TTL)
 
 ## Success Metrics
 
@@ -251,7 +183,7 @@ Respond with JSON:
 
 **Risk 2: Poor quality scenarios pollute platform**
 
-- Mitigation: Gemini 2.5 Flash validation (Story 1.5) filters obvious problems
+- Mitigation: Simple length validation filters low-effort content
 - Mitigation: Community engagement metrics (likes, conversations, forks) indicate quality
 - Mitigation: Community reporting in Phase 2 (deferred from MVP)
 
@@ -273,7 +205,7 @@ Respond with JSON:
 
 - Hardcoded character lists for popular books (future: RAG extraction)
 - Hardcoded event timelines (future: RAG extraction)
-- No ML-based scenario quality prediction (using Gemini 2.5 Flash validation)
+- No ML-based scenario quality prediction
 - No scenario merge/combine mechanics (Phase 2 feature)
 - No collaborative scenario editing (Phase 2 feature)
 
@@ -297,7 +229,7 @@ Respond with JSON:
 - POST /api/scenarios with all three scenario types
 - GET /api/scenarios with filters (base_story, scenario_type, creator_id)
 - POST /api/scenarios/{id}/fork with meta-scenario creation
-- Validation endpoint integration with Local LLM
+- Validation logic (length checks)
 
 **E2E Tests** (Stories 1.2-1.4):
 
@@ -325,11 +257,11 @@ Respond with JSON:
    **A**: Yes, add `visibility` field (public/unlisted/private) in Story 1.1—default to "public"
 
 4. **Q**: What happens if user creates contradictory meta-fork? (e.g., "Hermione in Slytherin" + "Hermione never went to Hogwarts")
-   **A**: Validation system (Story 1.3) catches this, suggests: "These scenarios contradict. Consider separate timelines."
+   **A**: Currently allowed. We rely on user discretion. Future updates might introduce AI-based consistency checks.
 
 ## Definition of Done
 
-- [ ] All 3 stories completed with acceptance criteria met
+- [ ] All 2 stories completed with acceptance criteria met
 - [ ] Unit tests >80% coverage on backend services
 - [ ] Integration tests passing for all API endpoints
 - [ ] E2E tests passing for all three scenario creation flows
