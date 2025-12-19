@@ -194,18 +194,20 @@ public Flux<ServerSentEvent<String>> streamMessage(@PathVariable UUID id) {
 
 ### Backend
 
-| Component   | Technology      | Port | Purpose               |
-| ----------- | --------------- | ---- | --------------------- |
-| API Gateway | Spring Boot 3.x | 8080 | Single entry point    |
-| AI Service  | FastAPI 0.110+  | 8000 | RAG, VectorDB, Gemini |
-| Task Queue  | Celery + Redis  | 6379 | Async AI operations   |
+| Component       | Technology      | Port | Purpose                                |
+| --------------- | --------------- | ---- | -------------------------------------- |
+| API Gateway     | Spring Boot 3.x | 8080 | Single entry point                     |
+| AI Service      | FastAPI 0.110+  | 8000 | RAG, VectorDB, Gemini                  |
+| Task Queue      | Celery + Redis  | 6379 | Async AI operations                    |
+| JSON Processing | Jackson         | N/A  | Structured scenario data serialization |
 
 ### Data Layer
 
-| Component   | Technology        | Access           |
-| ----------- | ----------------- | ---------------- |
-| Metadata DB | PostgreSQL 15.x   | Spring Boot only |
-| Content DB  | ChromaDB/Pinecone | FastAPI only     |
+| Component      | Technology        | Access           | Storage Format    |
+| -------------- | ----------------- | ---------------- | ----------------- |
+| Metadata DB    | PostgreSQL 15.x   | Spring Boot only | Relational + JSON |
+| Content DB     | ChromaDB/Pinecone | FastAPI only     | Vector embeddings |
+| Scenario Store | PostgreSQL TEXT   | Spring Boot only | JSON arrays       |
 
 ### Frontend
 
@@ -234,21 +236,30 @@ Gutenberg File → FastAPI Parse → Chunk Text
 → Spring Boot Metadata Update
 ```
 
-### 2. Scenario Creation
+### 2. Scenario Creation (Enhanced with Structured Data)
 
 ```
-User Request → Spring Boot
+User Request (Structured/Legacy) → Spring Boot
+→ Validation (at least one type filled)
+→ JSON Serialization (if structured data provided)
 → FastAPI VectorDB Search (similar passages)
-→ Spring Boot Save (PostgreSQL with passage_ids)
+→ Spring Boot Save (PostgreSQL with JSON fields)
+→ Auto-generate What-If question
 ```
+
+**Supported Input Formats**:
+
+- **Structured**: `characterPropertyChanges[]`, `eventAlterationsList[]`, `settingModificationsList[]`
+- **Legacy**: `characterChanges` (string), `eventAlterations` (string), `settingModifications` (string)
+- **Hybrid**: Mix of both formats (structured takes precedence)
 
 ### 3. Conversation Generation
 
 ```
 Frontend → Spring Boot
 → FastAPI Async (Celery)
-→ VectorDB Query (character + passages)
-→ Gemini 2.5 Flash
+→ VectorDB Query (character + passages + scenario context)
+→ Gemini 2.5 Flash (with What-If scenario prompt)
 → Spring Boot Save Messages
 → SSE Stream to Frontend
 ```
@@ -331,16 +342,130 @@ public List<Passage> searchPassages(UUID novelId, String query) { ... }
 
 ---
 
+## 🎨 Structured Scenario Architecture
+
+### What-If Scenario Types
+
+Gaji supports three structured scenario types for exploring alternative story timelines:
+
+#### 1. Character Property Changes (캐릭터 속성 변경)
+
+Transform character attributes like personality, affiliation, abilities, or backstory.
+
+**Example**: "What if Hermione was sorted into Slytherin?"
+
+**Structure**:
+
+```json
+{
+  "characterName": "Hermione Granger",
+  "houseAssignment": {
+    "originalValue": "Gryffindor",
+    "changedValue": "Slytherin",
+    "reason": "Sorting Hat recognized her ambition"
+  },
+  "personalityTraits": {
+    "originalValue": "Brave and just",
+    "changedValue": "Ambitious and strategic"
+  }
+}
+```
+
+#### 2. Event Alterations (사건 결과 변경)
+
+Change how key story events unfold or prevent them entirely.
+
+**Example**: "What if Gatsby never reunited with Daisy?"
+
+**Alteration Types**:
+
+- `NEVER_OCCURRED`: Event didn't happen
+- `PREVENTED`: Event was blocked
+- `OUTCOME_CHANGED`: Different result
+- `SUCCEEDED`: Event succeeded (vs failed in original)
+
+**Structure**:
+
+```json
+{
+  "eventName": "Gatsby and Daisy's Reunion",
+  "originalEvent": "Nick arranges their meeting at his house",
+  "alterationType": "NEVER_OCCURRED",
+  "alteredOutcome": "Gatsby declines Nick's invitation",
+  "timelineImpact": "Gatsby's obsession continues, tragic events avoided"
+}
+```
+
+#### 3. Setting Modifications (배경/세계관 수정)
+
+Relocate stories across time, space, or cultural contexts.
+
+**Example**: "What if Pride & Prejudice took place in 2024 Seoul?"
+
+**Modifiable Elements**:
+
+- **Time Period**: 19th century → 2024
+- **Location**: England → Seoul, Korea
+- **Cultural Context**: Aristocracy → Modern chaebols
+- **Technology/Magic**: Letters → Smartphones
+
+**Structure**:
+
+```json
+{
+  "timePeriod": {
+    "originalPeriod": "Early 19th century England",
+    "modifiedPeriod": "2024 Modern Day",
+    "keyDifferences": "Social media, career women, modern dating"
+  },
+  "location": {
+    "originalLocation": "Hertfordshire, England",
+    "modifiedLocation": "Gangnam, Seoul",
+    "keyDifferences": "Urban lifestyle, Korean culture, K-drama aesthetics"
+  }
+}
+```
+
+### Data Storage
+
+Structured scenarios are stored as JSON arrays in PostgreSQL TEXT columns:
+
+- `character_changes`: `TEXT` (JSON array of CharacterPropertyChange objects)
+- `event_alterations`: `TEXT` (JSON array of EventAlteration objects)
+- `setting_modifications`: `TEXT` (JSON array of SettingModification objects)
+
+**Backward Compatibility**: Legacy string fields still supported; structured data takes precedence.
+
+### AI Prompt Integration
+
+When generating conversations, structured scenario data is injected into Gemini prompts:
+
+```
+You are Hermione Granger who was sorted into Slytherin instead of Gryffindor.
+
+Character Changes:
+- House: Gryffindor → Slytherin (Sorting Hat recognized ambition)
+- Personality: Brave → Ambitious and strategic
+- Friends: Harry/Ron → Draco/Pansy
+
+You remember all events from THIS alternate timeline. Respond in character.
+```
+
+This enables consistent AI character adaptation across alternative timelines.
+
+---
+
 ## 🛠️ Implementation Roadmap
 
-| Phase     | Epic     | Hours    | Focus                                      |
-| --------- | -------- | -------- | ------------------------------------------ |
-| 1         | Epic 0   | 54h      | Infrastructure, Novel Ingestion, LLM Setup |
-| 2         | Epic 1-2 | 80h      | Scenarios, AI Adaptation                   |
-| 3         | Epic 3-4 | 72h      | Discovery, Conversation System             |
-| 4         | Epic 5   | 24h      | Tree Visualization                         |
-| 5         | Epic 6   | 60h      | Auth, Social Features                      |
-| **Total** | **0-6**  | **290h** | **~12 weeks**                              |
+| Phase     | Epic     | Hours    | Focus                                         |
+| --------- | -------- | -------- | --------------------------------------------- |
+| 1         | Epic 0   | 54h      | Infrastructure, Novel Ingestion, LLM Setup    |
+| 2         | Epic 1-2 | 80h      | Scenarios, AI Adaptation                      |
+|           |          | +8h      | Structured Scenario DTOs & JSON Serialization |
+| 3         | Epic 3-4 | 72h      | Discovery, Conversation System                |
+| 4         | Epic 5   | 24h      | Tree Visualization                            |
+| 5         | Epic 6   | 60h      | Auth, Social Features                         |
+| **Total** | **0-6**  | **298h** | **~12 weeks**                                 |
 
 ---
 
@@ -378,6 +503,7 @@ public List<Passage> searchPassages(UUID novelId, String query) { ... }
 - [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md) - Local setup
 - [MSA_BACKEND_OPTIMIZATION.md](./MSA_BACKEND_OPTIMIZATION.md) - Optimization strategies
 - [DATABASE_STRATEGY_COMPARISON.md](./DATABASE_STRATEGY_COMPARISON.md) - DB design
+- [STRUCTURED_SCENARIO_GUIDE.md](./STRUCTURED_SCENARIO_GUIDE.md) - Structured scenario creation guide
 
 ### Specifications
 
