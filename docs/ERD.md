@@ -1,14 +1,14 @@
 # Entity Relationship Diagram (ERD)
 
 **Project**: Gaji - Interactive Fiction Platform  
-**Last Updated**: 2025-11-19 (Version 1.1)
+**Last Updated**: 2025-12-08 (Version 1.2)
 **Database Architecture**: PostgreSQL 15.x (Metadata) + VectorDB (Content & Embeddings)  
 **Backend Architecture**: MSA (FastAPI AI Service + Spring Boot CRUD Service)  
 **Novel Source**: Project Gutenberg Dataset (Direct Import)  
 **Migration Tool**: Flyway  
 **VectorDB**: ChromaDB (Development) / Pinecone (Production)
 
-**Version 1.1 Changes**: Quality score removed, book-centric architecture, unified scenario creation
+**Version 1.2 Changes**: Added book_comments table for user book reviews and discussions
 
 ---
 
@@ -37,7 +37,7 @@
 
 ### Schema Statistics
 
-- **PostgreSQL Tables**: 13 core tables (metadata only)
+- **PostgreSQL Tables**: 15 core tables (metadata only)
 - **PostgreSQL Extensions**: `uuid-ossp`, `pg_trgm` (removed `pgvector` - embeddings now in VectorDB)
 - **VectorDB Collections**: 5 collections (novel_passages, characters, locations, events, themes)
 - **Redis Data Structures**: 2 types (async task tracking, user activity feed)
@@ -328,6 +328,8 @@ erDiagram
     users ||--o{ leaf_user_scenarios : forks
     users ||--o{ conversations : owns
     users ||--o{ conversation_likes : likes
+    users ||--o{ book_likes : "likes books"
+    users ||--o{ book_comments : "comments on books"
     users ||--o{ conversation_memos : writes
     users ||--o{ scenario_likes : likes
     users ||--o{ comments : writes
@@ -335,6 +337,8 @@ erDiagram
     users ||--o{ user_achievements : earns
 
     novels ||--o{ base_scenarios : "has base scenarios"
+    novels ||--o{ book_likes : "receives likes"
+    novels ||--o{ book_comments : "receives comments"
 
     base_scenarios ||--o{ root_user_scenarios : "root scenarios from"
 
@@ -444,6 +448,15 @@ erDiagram
         UUID user_id FK
         UUID conversation_id FK
         TEXT memo_text
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    book_comments {
+        UUID id PK
+        UUID book_id FK
+        UUID user_id FK
+        TEXT content
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
@@ -655,6 +668,7 @@ CREATE TABLE novels (
     copyright_note TEXT,  -- e.g., 'Public domain in the USA'
     cover_image_url VARCHAR(500),
     description TEXT,
+    like_count INTEGER DEFAULT 0,  -- Aggregated book like count (auto-updated by trigger)
     status VARCHAR(20) DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'PUBLISHED', 'ARCHIVED')),
     metadata JSONB,
     is_verified BOOLEAN DEFAULT false,
@@ -762,31 +776,88 @@ User-created "What If" scenarios based on book content (CAN BE FORKED).
 ```sql
 CREATE TABLE root_user_scenarios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    base_scenario_id UUID REFERENCES base_scenarios(id) NOT NULL,
+    base_scenario_id UUID REFERENCES base_scenarios(id),
+    novel_id UUID REFERENCES novels(id) NOT NULL,
     user_id UUID REFERENCES users(id) NOT NULL,
-    title VARCHAR(255),
+    title VARCHAR(255) NOT NULL,
     description TEXT,
+    what_if_question TEXT NOT NULL,
+
+    -- Structured Scenario Data (Version 2.0 - JSON Format)
+    -- Stores JSON arrays of structured objects
+    character_changes TEXT,  -- JSON array of CharacterPropertyChange objects OR legacy string
+    event_alterations TEXT,  -- JSON array of EventAlteration objects OR legacy string
+    setting_modifications TEXT,  -- JSON array of SettingModification objects OR legacy string
+
     scenario_type VARCHAR(50) NOT NULL CHECK (scenario_type IN (
         'CHARACTER_CHANGE',
         'EVENT_ALTERATION',
         'SETTING_MODIFICATION'
     )),
+    scenario_category VARCHAR(50),
+
     difficulty_level VARCHAR(20) DEFAULT 'MEDIUM' CHECK (difficulty_level IN ('EASY', 'MEDIUM', 'HARD')),
     estimated_play_time INTEGER, -- In minutes
     tags TEXT[],
     is_private BOOLEAN DEFAULT false,
     fork_count INTEGER DEFAULT 0,
     conversation_count INTEGER DEFAULT 0,
+    content_hash VARCHAR(32),  -- For duplicate detection
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+```
+
+**Version 2.0 Changes - Structured Scenario Support**:
+
+- **NEW `character_changes`**: Stores JSON array of `CharacterPropertyChange` objects (house, personality, friends, background) OR legacy string format
+- **NEW `event_alterations`**: Stores JSON array of `EventAlteration` objects (event name, type: NEVER_OCCURRED/PREVENTED/OUTCOME_CHANGED/SUCCEEDED) OR legacy string format
+- **NEW `setting_modifications`**: Stores JSON array of `SettingModification` objects (time period, location, culture, system changes) OR legacy string format
+- **NEW `what_if_question`**: Auto-generated from structured data or user-provided
+- **NEW `novel_id`**: Direct reference to book (replaces base_scenario_id in some cases)
+- **NEW `content_hash`**: MD5 hash for duplicate detection
+- **BACKWARD COMPATIBLE**: All TEXT fields accept both JSON arrays (structured) and plain strings (legacy)
+
+**JSON Structure Examples**:
+
+```json
+// character_changes field
+[
+  {
+    "characterName": "Hermione Granger",
+    "houseAssignment": {
+      "originalValue": "Gryffindor",
+      "changedValue": "Slytherin",
+      "reason": "Sorting Hat recognized ambition"
+    },
+    "personalityTraits": {
+      "originalValue": "Brave",
+      "changedValue": "Ambitious"
+    }
+  }
+]
+
+// event_alterations field
+[
+  {
+    "eventName": "Troll Incident",
+    "originalEvent": "Harry and Ron save Hermione",
+    "alterationType": "OUTCOME_CHANGED",
+    "alteredOutcome": "Draco and Pansy save Hermione",
+    "timelineImpact": "Bonds with Slytherins instead",
+    "eventTiming": "Year 1, Halloween"
+  }
+]
 ```
 
 **Business Rules**:
 
 - Root user scenarios are "What If" variations based on book content
 - Can be forked by other users (if `is_private = false`) → creates `leaf_user_scenarios`
-- Custom parameters stored in type-specific tables (`scenario_character_changes`, etc.)
+- At least ONE of character_changes, event_alterations, or setting_modifications must be non-empty
+- Structured data is serialized to JSON by backend (Jackson ObjectMapper)
+- Legacy string format still supported for backward compatibility
 
 ---
 
@@ -1067,6 +1138,22 @@ CREATE TABLE conversation_likes (
 
 ---
 
+#### `book_likes`
+
+User likes on books/novels.
+
+```sql
+CREATE TABLE book_likes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id UUID NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, book_id)
+);
+-- NOTE: Trigger auto-updates novels.like_count on INSERT/DELETE
+```
+
+---
+
 #### `conversation_memos`
 
 User-written memos/notes on conversations (private bookmarks).
@@ -1082,6 +1169,39 @@ CREATE TABLE conversation_memos (
     UNIQUE(user_id, conversation_id)
 );
 ```
+
+---
+
+#### `book_comments`
+
+User comments/reviews on books (public, visible to all users).
+
+```sql
+CREATE TABLE book_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    book_id UUID NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL CHECK (LENGTH(content) >= 1 AND LENGTH(content) <= 1000),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Columns**:
+
+- `id`: Unique comment identifier
+- `book_id`: Reference to the novel being commented on
+- `user_id`: User who wrote the comment
+- `content`: Comment text (1-1000 characters)
+- `created_at`: Comment creation timestamp
+- `updated_at`: Last edit timestamp
+
+**Design Notes**:
+
+- Public comments (not private like memos)
+- Users can edit/delete their own comments
+- Character limit enforced at database level
+- No nested replies in v1 (flat comment structure)
 
 ---
 
@@ -1450,8 +1570,12 @@ ALTER TABLE user_follows ADD FOREIGN KEY (follower_id) REFERENCES users(id) ON D
 ALTER TABLE user_follows ADD FOREIGN KEY (followee_id) REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE conversation_likes ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE conversation_likes ADD FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
+ALTER TABLE book_likes ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE book_likes ADD FOREIGN KEY (book_id) REFERENCES novels(id) ON DELETE CASCADE;
 ALTER TABLE conversation_memos ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE conversation_memos ADD FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
+ALTER TABLE book_comments ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE book_comments ADD FOREIGN KEY (book_id) REFERENCES novels(id) ON DELETE CASCADE;
 ```
 
 ### Cross-Database References
@@ -1525,8 +1649,13 @@ CREATE INDEX idx_user_follows_follower_id ON user_follows(follower_id);
 CREATE INDEX idx_user_follows_followee_id ON user_follows(followee_id);
 CREATE INDEX idx_conversation_likes_user_id ON conversation_likes(user_id);
 CREATE INDEX idx_conversation_likes_conversation_id ON conversation_likes(conversation_id);
+CREATE INDEX idx_book_likes_user_id ON book_likes(user_id);
+CREATE INDEX idx_book_likes_book_id ON book_likes(book_id);
+CREATE INDEX idx_book_likes_user_created ON book_likes(user_id, created_at DESC);
 CREATE INDEX idx_conversation_memos_user_id ON conversation_memos(user_id);
 CREATE INDEX idx_conversation_memos_conversation_id ON conversation_memos(conversation_id);
+CREATE INDEX idx_book_comments_book_id ON book_comments(book_id, created_at DESC);
+CREATE INDEX idx_book_comments_user_id ON book_comments(user_id);
 ```
 
 ### VectorDB Indexes
@@ -1814,7 +1943,7 @@ client.restore_collection("novel_passages", snapshot="pre_migration_snapshot_202
 
 ### PostgreSQL-Only ERD
 
-This diagram shows the clean relational structure of the 13 PostgreSQL tables without VectorDB references.
+This diagram shows the clean relational structure of the 14 PostgreSQL tables without VectorDB references.
 
 ```mermaid
 erDiagram
@@ -1826,6 +1955,7 @@ erDiagram
     users ||--o{ conversations : "owns"
     users ||--o{ messages : "sends"
     users ||--o{ conversation_likes : "likes"
+    users ||--o{ book_likes : "likes books"
     users ||--o{ conversation_memos : "writes memo"
     users ||--o{ scenario_likes : "likes scenario"
     users ||--o{ scenario_comments : "comments on scenario"
@@ -1843,6 +1973,7 @@ erDiagram
     leaf_user_scenarios ||--o{ scenario_tags : "tagged"
 
     novels ||--o{ base_scenarios : "has base scenarios"
+    novels ||--o{ book_likes : "receives likes"
 
     base_scenarios ||--o{ root_user_scenarios : "root from base"
 
@@ -2016,6 +2147,12 @@ erDiagram
     conversation_likes {
         UUID user_id PK_FK
         UUID conversation_id PK_FK
+        TIMESTAMP created_at
+    }
+
+    book_likes {
+        UUID user_id PK_FK
+        UUID book_id PK_FK
         TIMESTAMP created_at
     }
 
