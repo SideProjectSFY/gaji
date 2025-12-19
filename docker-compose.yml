@@ -97,7 +97,7 @@ services:
     networks:
       - gaji-network
     volumes:
-      - ./gajiBE/backend:/app
+      - ./gajiBE:/app
       - /app/build
       - /app/.gradle
     healthcheck:
