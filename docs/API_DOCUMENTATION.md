@@ -231,96 +231,190 @@ Create a new What If scenario.
 **Authentication**: Required  
 **Performance**: < 200ms
 
-#### Request
+#### Request (Structured Format - Version 2.0)
 
 ```json
 {
-  "base_story": "harry_potter",
-  "scenario_type": "CHARACTER_CHANGE",
-  "parameters": {
-    "character": "Hermione Granger",
-    "property": "house",
-    "original_value": "Gryffindor",
-    "new_value": "Slytherin",
-    "change_point": "Sorting Hat ceremony",
-    "ripple_effects": ["Different friend group", "Changed house dynamics"]
-  }
+  "novelId": "uuid-harry-potter-philosophers-stone",
+  "scenarioTitle": "Hermione in Slytherin",
+  "characterPropertyChanges": [
+    {
+      "characterName": "Hermione Granger",
+      "houseAssignment": {
+        "originalValue": "Gryffindor",
+        "changedValue": "Slytherin",
+        "reason": "Sorting Hat recognized her ambition"
+      },
+      "personalityTraits": {
+        "originalValue": "Brave and just",
+        "changedValue": "Ambitious and strategic"
+      },
+      "friendGroup": {
+        "originalValue": "Harry Potter, Ron Weasley",
+        "changedValue": "Draco Malfoy, Pansy Parkinson"
+      }
+    }
+  ],
+  "eventAlterationsList": [
+    {
+      "eventName": "Troll Incident",
+      "originalEvent": "Harry and Ron save Hermione from troll",
+      "alterationType": "OUTCOME_CHANGED",
+      "alteredOutcome": "Draco and Pansy save Hermione",
+      "timelineImpact": "Hermione bonds with Slytherins",
+      "eventTiming": "Year 1, Halloween"
+    }
+  ],
+  "settingModificationsList": [],
+  "whatIfQuestion": "What if Hermione was sorted into Slytherin?",
+  "isPrivate": false
 }
 ```
 
-**Scenario Types**:
-
-- `CHARACTER_CHANGE`: Alter character properties
-- `EVENT_ALTERATION`: Change key events
-- `SETTING_MODIFICATION`: Modify settings/world
-
-**JSONB Parameters** (flexible schema per type):
-
-**CHARACTER_CHANGE**:
+#### Request (Legacy Format - Still Supported)
 
 ```json
 {
-  "character": "string",
-  "property": "house|personality|skill|backstory",
-  "original_value": "string",
-  "new_value": "string",
-  "change_point": "string",
-  "ripple_effects": ["string"]
+  "novelId": "uuid-harry-potter-philosophers-stone",
+  "scenarioTitle": "Hermione in Slytherin",
+  "characterChanges": "Hermione sorted into Slytherin instead of Gryffindor. Befriends Draco, mentored by Snape.",
+  "eventAlterations": "Troll incident: saved by Draco and Pansy instead of Harry and Ron.",
+  "settingModifications": "",
+  "whatIfQuestion": "What if Hermione was sorted into Slytherin?",
+  "isPrivate": false
 }
 ```
 
-**EVENT_ALTERATION**:
+**Scenario Types (Version 2.0)**:
 
-```json
+#### 1. Character Property Changes
+
+Transform character attributes like personality, affiliation, abilities, or backstory.
+
+**Structure**:
+
+```typescript
 {
-  "event": "string",
-  "timeline_point": "string",
-  "alteration_type": "prevent|accelerate|relocate|outcome_change",
-  "original_outcome": "string",
-  "new_outcome": "string",
-  "affected_characters": ["string"]
+  characterName: string;
+  houseAssignment?: PropertyChange;
+  personalityTraits?: PropertyChange;
+  friendGroup?: PropertyChange;
+  backgroundStory?: PropertyChange;
+  otherChanges?: string;
+}
+
+PropertyChange {
+  originalValue: string;
+  changedValue: string;
+  reason?: string;
 }
 ```
 
-**SETTING_MODIFICATION**:
+**Example**: "What if Hermione was sorted into Slytherin?"
 
-```json
+#### 2. Event Alterations
+
+Change how key story events unfold or prevent them entirely.
+
+**Alteration Types**:
+
+- `NEVER_OCCURRED`: Event didn't happen
+- `PREVENTED`: Event was blocked
+- `OUTCOME_CHANGED`: Different result
+- `SUCCEEDED`: Event succeeded (vs failed in original)
+
+**Structure**:
+
+```typescript
 {
-  "setting_element": "location|era|magic_system|technology",
-  "scope": "global|regional|local",
-  "change_description": "string",
-  "impact_level": "minor|moderate|major"
+  eventName: string;
+  originalEvent: string;
+  alterationType: EventAlterationType;
+  alteredOutcome: string;
+  timelineImpact?: string;
+  eventTiming?: string;
 }
 ```
+
+**Example**: "What if Gatsby never reunited with Daisy?"
+
+#### 3. Setting Modifications
+
+Relocate stories across time, space, or cultural contexts.
+
+**Structure**:
+
+```typescript
+{
+  timePeriod?: {
+    originalPeriod: string;
+    modifiedPeriod: string;
+    keyDifferences?: string;
+  };
+  location?: {
+    originalLocation: string;
+    modifiedLocation: string;
+    keyDifferences?: string;
+  };
+  culturalContext?: {
+    originalContext: string;
+    modifiedContext: string;
+    keyDifferences?: string;
+  };
+  systemChange?: {
+    systemType: string; // magic_system, technology_level, social_system
+    originalSystem: string;
+    modifiedSystem: string;
+    keyDifferences?: string;
+  };
+}
+```
+
+**Example**: "What if Pride & Prejudice took place in 2024 Seoul?"
+
+**Validation Rules**:
+
+- `novelId`: Required UUID
+- `scenarioTitle`: Required, max 100 chars
+- At least ONE of: `characterPropertyChanges`, `eventAlterationsList`, `settingModificationsList` (structured) OR `characterChanges`, `eventAlterations`, `settingModifications` (legacy) must be provided
+- Legacy fields: Min 10 chars if provided
+- `whatIfQuestion`: Auto-generated if not provided
 
 #### Response (201 Created)
 
 ```json
 {
   "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-  "base_story": "harry_potter",
-  "scenario_type": "CHARACTER_CHANGE",
-  "parameters": {
-    "character": "Hermione Granger",
-    "property": "house",
-    "original_value": "Gryffindor",
-    "new_value": "Slytherin",
-    "change_point": "Sorting Hat ceremony",
-    "ripple_effects": ["Different friend group", "Changed house dynamics"]
-  },
-  "creator_id": "550e8400-e29b-41d4-a716-446655440000",
-  "fork_count": 0,
-  "conversation_count": 0,
-  "created_at": "2025-11-13T10:30:00Z",
-  "updated_at": "2025-11-13T10:30:00Z"
+  "novelId": "uuid-harry-potter-philosophers-stone",
+  "scenarioTitle": "Hermione in Slytherin",
+  "scenarioType": "CHARACTER_CHANGE",
+  "characterChanges": "{\"characterName\":\"Hermione Granger\",\"houseAssignment\":{\"originalValue\":\"Gryffindor\",\"changedValue\":\"Slytherin\"}}",
+  "eventAlterations": "{\"eventName\":\"Troll Incident\",\"alterationType\":\"OUTCOME_CHANGED\"}",
+  "settingModifications": null,
+  "whatIfQuestion": "What if Hermione was sorted into Slytherin?",
+  "description": null,
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "baseScenarioId": null,
+  "forkCount": 0,
+  "isPrivate": false,
+  "createdAt": "2025-11-13T10:30:00Z",
+  "updatedAt": "2025-11-13T10:30:00Z"
 }
 ```
 
+**Note**: Structured data is serialized to JSON strings in response. Frontend can parse and deserialize as needed.
+
 #### Errors
 
-- `400 Bad Request`: Invalid parameters or scenario type
+- `400 Bad Request`: Validation failed - at least one scenario type required with min 10 chars (legacy) or valid structured data
+  ```json
+  {
+    "error": "VALIDATION_FAILED",
+    "message": "At least one scenario type must be provided"
+  }
+  ```
 - `401 Unauthorized`: Missing or invalid token
-- `422 Unprocessable Entity`: JSONB schema validation failed
+- `422 Unprocessable Entity`: Invalid JSON structure in structured fields
 
 ---
 
