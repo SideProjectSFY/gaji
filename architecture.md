@@ -18,7 +18,7 @@ This document details the MSA backend architecture, hybrid database design, tech
 
 - **Hybrid Database Architecture**: Managing data split between PostgreSQL (metadata) and VectorDB (content/embeddings)
 
-  - **PostgreSQL**: Relational metadata, user data, conversation structure (13 core tables)
+  - **PostgreSQL**: Relational metadata, user data, conversation structure (15 core tables)
   - **VectorDB**: Novel content, embeddings, LLM analysis results (5 collections)
   - **Cross-DB References**: Maintaining consistency between metadata IDs and VectorDB document IDs
 
@@ -63,10 +63,10 @@ This document details the MSA backend architecture, hybrid database design, tech
 | **Purpose**        | Relational metadata, user data, business logic        | Novel content, embeddings, LLM analysis                      |
 | **Data Types**     | User accounts, scenarios, conversations, social graph | Full text passages, character descriptions, semantic vectors |
 | **Query Patterns** | CRUD operations, joins, transactions                  | Semantic search, similarity queries, embedding retrieval     |
-| **Table Count**    | 13 core tables                                        | 5 collections                                                |
+| **Table Count**    | 15 core tables                                        | 5 collections                                                |
 | **Storage Size**   | ~10GB for 1M users                                    | ~100GB for 1000 novels                                       |
 
-### 3.2. PostgreSQL Schema (Metadata Only - 13 Tables)
+### 3.2. PostgreSQL Schema (Metadata Only - 15 Tables)
 
 #### Core Tables
 
@@ -104,12 +104,14 @@ CREATE TABLE novels (
     )),
     cover_image_url VARCHAR(500),
     description TEXT,
+    like_count INTEGER DEFAULT 0,  -- Aggregated book like count
     is_verified BOOLEAN DEFAULT false,
     creator_id UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 -- NOTE: NO full_text column - content is in VectorDB
+-- NOTE: like_count is auto-updated by trigger on book_likes table
 ```
 
 **3. base_scenarios** (Scenario metadata with VectorDB references)
@@ -239,7 +241,7 @@ CREATE TABLE messages (
 );
 ```
 
-**10-13. Social Tables**
+**10-14. Social Tables**
 
 ```sql
 CREATE TABLE user_follows (
@@ -256,6 +258,14 @@ CREATE TABLE conversation_likes (
     PRIMARY KEY (user_id, conversation_id)
 );
 
+CREATE TABLE book_likes (
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    book_id UUID REFERENCES novels(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, book_id)
+);
+-- NOTE: Trigger auto-updates novels.like_count on INSERT/DELETE
+
 CREATE TABLE conversation_memos (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
@@ -263,6 +273,16 @@ CREATE TABLE conversation_memos (
     content TEXT NOT NULL CHECK (LENGTH(content) <= 1000),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE book_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    book_id UUID NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL CHECK (LENGTH(content) >= 1 AND LENGTH(content) <= 1000),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- NOTE: Users can comment on books to share thoughts and reviews
 ```
 
 ### 3.3. VectorDB Schema (Content + Embeddings - 5 Collections)
@@ -1206,10 +1226,24 @@ async def search_by_theme(theme_query: str, novel_id: UUID):
 **Books** (Book-Centric Navigation):
 
 ```
-GET    /api/v1/books                    # Browse books with scenarios count
+GET    /api/v1/books                    # Browse books with scenarios count and like count
 GET    /api/v1/books/{id}               # Book details
 GET    /api/v1/books/{id}/scenarios     # List scenarios for a specific book
 POST   /api/v1/novels/ingest            # Trigger ingestion (admin only)
+
+# Book Like endpoints (requires authentication)
+POST   /api/v1/books/{id}/like          # Like a book (idempotent)
+DELETE /api/v1/books/{id}/like          # Unlike a book (idempotent)
+POST   /api/v1/books/{id}/like/toggle   # Toggle like status
+GET    /api/v1/books/{id}/liked         # Check if current user liked a book
+GET    /api/v1/books/liked              # Get paginated list of liked books
+GET    /api/v1/books/liked/ids          # Get list of liked book IDs (for bulk checking)
+
+# Book Comment endpoints (requires authentication for create/update/delete)
+POST   /api/v1/books/{id}/comments      # Create a comment on a book
+GET    /api/v1/books/{id}/comments      # Get paginated comments for a book
+PUT    /api/v1/books/comments/{commentId}  # Update own comment
+DELETE /api/v1/books/comments/{commentId}  # Delete own comment
 ```
 
 **Scenarios**:
