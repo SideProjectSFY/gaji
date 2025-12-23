@@ -85,8 +85,8 @@ services:
       # Redis (for health check)
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      # Gemini API key (used by FastAPI, passed for config validation)
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      # Gemini API keys (used by FastAPI, passed for config validation)
+      GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
     ports:
       - "8080:8080"
     depends_on:
@@ -110,20 +110,25 @@ services:
   # FastAPI - Internal-only AI service (Pattern B)
   ai-service:
     build:
-      context: ./gajiAI
+      context: ./gajiAI/rag-chatbot_test
       dockerfile: Dockerfile.dev
     container_name: gaji-ai-service
     environment:
-      # Gemini API
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      # Gemini API (supports multiple keys via GEMINI_API_KEYS)
+      GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
       # VectorDB
       VECTORDB_TYPE: chromadb
       CHROMADB_HOST: chromadb
       CHROMADB_PORT: 8000
       # Spring Boot URL (for callbacks)
-      SPRING_BOOT_URL: http://backend:8080
+      SPRING_BOOT_BASE_URL: http://backend:8080
+      # JWT Authentication (must match Spring Boot JWT_SECRET)
+      JWT_SECRET_KEY: ${JWT_SECRET:-gaji-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
       # Redis for Celery + Long Polling (600s TTL)
-      REDIS_URL: redis://redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
     expose:
@@ -139,6 +144,8 @@ services:
       - gaji-network
     volumes:
       - ./gajiAI/rag-chatbot_test:/app
+      - ./gajiAI/rag-chatbot_test/.env:/app/.env:ro
+      - ./.cursor:/app/.cursor  # Debug log directory
     healthcheck:
       test:
         [
@@ -153,7 +160,7 @@ services:
   # Data Import Service (run manually: docker-compose run --rm data-import)
   data-import:
     build:
-      context: ./gajiAI
+      context: ./gajiAI/rag-chatbot_test
       dockerfile: Dockerfile.dev
     container_name: gaji-data-import
     environment:
