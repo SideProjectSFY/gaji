@@ -1,3 +1,8 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Gaji Production Caddyfile
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# 로컬 개발용
 localhost {
     @monitor path /monitor*
     
@@ -11,4 +16,58 @@ localhost {
     }
     
     reverse_proxy backend:8080
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 프로덕션용
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+api.gaji.me {
+    # CORS 헤더
+    header {
+        Access-Control-Allow-Origin "https://gaji.me,https://www.gaji.me"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Authorization, Content-Type, X-User-Id"
+        Access-Control-Allow-Credentials "true"
+    }
+
+    # OPTIONS 요청 처리
+    @options method OPTIONS
+    handle @options {
+        respond 204
+    }
+
+    # 모니터링 엔드포인트
+    @monitor path /monitor*
+    basic_auth @monitor {
+        {$MONITOR_USERNAME} {$MONITOR_PASSWORD_HASH}
+    }
+    handle @monitor {
+        uri strip_prefix /monitor
+        reverse_proxy monitor:5000
+    }
+
+    # 백엔드 API
+    reverse_proxy backend:8080 {
+        health_uri /actuator/health
+        health_interval 10s
+        health_timeout 5s
+        
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 60s
+        }
+    }
+
+    # TLS 자동 인증서
+    tls admin@gaji.me
+
+    # 로깅
+    log {
+        output file /logs/api-access.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+        format json
+    }
 }
