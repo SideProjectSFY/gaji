@@ -92,7 +92,7 @@ Initialize Vue 3 + TypeScript + Vite frontend project with **PandaCSS**, **Prime
   - SSE support for streaming AI responses
 - [x] **Environment variables**:
   - `.env.development`: `VITE_API_BASE_URL=http://localhost:8080/api/v1`
-  - `.env.production`: `VITE_API_BASE_URL=https://api.gaji.app/api/v1`
+  - `.env.production`: `VITE_API_BASE_URL=https://api.gaji.me/api/v1`
 - [x] TypeScript strict mode enabled (`tsconfig.json`)
 - [x] ESLint + Prettier configured
 - [x] Application runs on port 3000 (Vite default)

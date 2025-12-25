@@ -60,7 +60,7 @@ Initialize Spring Boot application as **API Gateway** with WebClient for proxyin
   - Retry logic: 3 attempts with exponential backoff
 - [x] **CORS configuration**:
   - Dev: `http://localhost:3000` (Vite default port)
-  - Prod: `https://gaji.app`
+  - Prod: `https://gaji.me`
   - ❌ NO external FastAPI or Gemini API access
 - [x] **API Gateway routes**:
   - `/api/v1/*` - Spring Boot direct endpoints (scenarios, conversations, users)
@@ -262,8 +262,8 @@ Use Spring Boot 3.2+ for Virtual Threads support (improves proxy throughput)
   - CSRF disabled (appropriate for REST API)
 - [x] **CORS limited to known frontend domains** ✅
   - Dev: `http://localhost:3000,http://localhost:5173`
-  - Staging: `https://staging.gaji.app`
-  - Prod: `https://gaji.app`
+  - Staging: `https://staging.gaji.me`
+  - Prod: `https://gaji.me`
   - No wildcard (`*`) origins
 - [x] **FastAPI URL not exposed externally** ✅
   - FastAPI base URL configured via backend environment variable
@@ -384,7 +384,7 @@ Created `WebClientConfig.java` with:
 Created `CorsConfig.java` with:
 
 - [x] Dev origins: `http://localhost:3000`, `http://localhost:5173`
-- [x] Prod origin: `https://gaji.app`
+- [x] Prod origin: `https://gaji.me`
 - [x] Allowed methods: GET, POST, PUT, DELETE, PATCH, OPTIONS
 - [x] Credentials support enabled
 - [x] Max age: 3600 seconds

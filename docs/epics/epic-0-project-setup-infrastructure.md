@@ -75,7 +75,7 @@ While users don't directly interact with infrastructure, this epic ensures:
   - Error handling with circuit breaker pattern
 - [ ] CORS configuration for frontend:
   - Dev: `http://localhost:3000` (Vite default)
-  - Prod: `https://gaji.app`
+  - Prod: `https://gaji.me`
 - [ ] API Gateway routes:
   - `/api/v1/*` - Spring Boot direct endpoints
   - `/api/v1/ai/*` - Proxy to FastAPI (e.g., `/api/v1/ai/chat` → `http://localhost:8000/api/chat`)
@@ -447,7 +447,7 @@ CREATE TABLE conversation_memos (
   - SSE support for streaming AI responses
 - [ ] Environment variables:
   - `.env.development`: `VITE_API_BASE_URL=http://localhost:8080/api/v1`
-  - `.env.production`: `VITE_API_BASE_URL=https://api.gaji.app/api/v1`
+  - `.env.production`: `VITE_API_BASE_URL=https://api.gaji.me/api/v1`
 - [ ] TypeScript strict mode enabled
 - [ ] ESLint + Prettier configured
 - [ ] Application runs on port 3000 (Vite default)

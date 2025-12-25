@@ -357,6 +357,6 @@ We're a passionate team of developers building the future of interactive storyte
 
 Made with ❤️ by the Gaji team
 
-[Website](https://gaji.app) • [Docs](docs/) • [Blog](https://blog.gaji.app)
+[Website](https://gaji.me) • [Docs](docs/) • [Blog](https://blog.gaji.me)
 
 </div>

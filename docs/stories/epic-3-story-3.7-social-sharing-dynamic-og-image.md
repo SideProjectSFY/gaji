@@ -249,7 +249,7 @@ public class ScenarioViewController {
         model.addAttribute("ogTitle", buildScenarioTitle(scenario));
         model.addAttribute("ogDescription", buildScenarioDescription(scenario));
         model.addAttribute("ogImage", ogImageUrl);
-        model.addAttribute("ogUrl", "https://gaji.app/scenarios/" + id);
+        model.addAttribute("ogUrl", "https://gaji.me/scenarios/" + id);
 
         return "scenario-detail";
     }
@@ -344,7 +344,7 @@ const toggleDropdown = () => {
 
 const shareTwitter = () => {
   const text = `What if... ${props.scenario.baseStory}? 🤔`;
-  const url = `https://gaji.app/scenarios/${props.scenario.id}`;
+  const url = `https://gaji.me/scenarios/${props.scenario.id}`;
   window.open(
     `https://twitter.com/intent/tweet?text=${encodeURIComponent(
       text
@@ -356,7 +356,7 @@ const shareTwitter = () => {
 };
 
 const shareFacebook = () => {
-  const url = `https://gaji.app/scenarios/${props.scenario.id}`;
+  const url = `https://gaji.me/scenarios/${props.scenario.id}`;
   window.open(
     `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
     "_blank",
@@ -366,7 +366,7 @@ const shareFacebook = () => {
 };
 
 const copyLink = async () => {
-  const url = `https://gaji.app/scenarios/${props.scenario.id}`;
+  const url = `https://gaji.me/scenarios/${props.scenario.id}`;
   try {
     await navigator.clipboard.writeText(url);
     showToast("Link copied with preview! 🎉");
