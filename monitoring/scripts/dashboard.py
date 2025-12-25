@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from logging.handlers import TimedRotatingFileHandler
 
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request, redirect, url_for, session
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import redis
@@ -42,8 +42,155 @@ logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'gaji-monitor-secret-key-change-in-production')
 
-# HTML 템플릿
+# 로그인 페이지 템플릿
+LOGIN_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Gaji Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .login-header h1 {
+            font-size: 2rem;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        
+        .login-header p {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #374151;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        
+        .error-message {
+            background: #fef2f2;
+            border: 2px solid #fecaca;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="icon">🎮</div>
+            <h1>Gaji Monitor</h1>
+            <p>시스템 모니터링 대시보드</p>
+        </div>
+        
+        {% if error %}
+        <div class="error-message">
+            ❌ {{ error }}
+        </div>
+        {% endif %}
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <button type="submit" class="btn-login">로그인</button>
+        </form>
+    </div>
+</body>
+</html>
+"""
+
+# HTML 템플릿 (기존 DASHBOARD_TEMPLATE에 로그아웃 버튼 추가)
 DASHBOARD_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ko">
@@ -74,6 +221,7 @@ DASHBOARD_TEMPLATE = """
             text-align: center;
             color: white;
             margin-bottom: 30px;
+            position: relative;
         }
         
         .header h1 {
@@ -85,6 +233,27 @@ DASHBOARD_TEMPLATE = """
         .header .subtitle {
             font-size: 1rem;
             opacity: 0.9;
+        }
+        
+        .logout-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
         }
         
         .status-badge {
@@ -245,6 +414,7 @@ DASHBOARD_TEMPLATE = """
 <body>
     <div class="container">
         <div class="header">
+            <a href="/monitor/logout" class="logout-btn">🚪 로그아웃</a>
             <h1>🎮 Gaji System Monitor</h1>
             <p class="subtitle">Real-time Infrastructure Monitoring Dashboard</p>
         </div>
@@ -416,7 +586,7 @@ DASHBOARD_TEMPLATE = """
         }
         
         function fetchMetrics() {
-            fetch('/api/metrics')
+            fetch('/monitor/api/metrics')
                 .then(response => response.json())
                 .then(data => renderDashboard(data))
                 .catch(error => {
@@ -620,6 +790,46 @@ class MonitorDashboard:
 
 # Flask 라우트
 dashboard = MonitorDashboard()
+
+# 로그인 체크 데코레이터 수정
+@app.before_request
+def require_login():
+    """로그인 필요 체크"""
+    allowed_endpoints = ['login', 'static']
+    if request.endpoint not in allowed_endpoints and not session.get('logged_in'):
+        return redirect('/monitor/login')  # 수정됨
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """로그인 페이지"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        correct_username = os.getenv('MONITOR_USERNAME', 'admin')
+        correct_password = os.getenv('MONITOR_PASSWORD', 'admin')
+        
+        if username == correct_username and password == correct_password:
+            session['logged_in'] = True
+            session.permanent = False
+            logger.info(f"로그인 성공: {username}")
+            return redirect('/monitor')  # 수정됨
+        else:
+            logger.warning(f"로그인 실패: {username}")
+            return render_template_string(LOGIN_TEMPLATE, error="아이디 또는 비밀번호가 올바르지 않습니다.")
+    
+    # 이미 로그인된 경우
+    if session.get('logged_in'):
+        return redirect('/monitor')  # 수정됨
+    
+    return render_template_string(LOGIN_TEMPLATE)
+
+@app.route('/logout')
+def logout():
+    """로그아웃"""
+    session.pop('logged_in', None)
+    logger.info("로그아웃")
+    return redirect('/monitor/login')  # 수정됨
 
 @app.route('/')
 def index():
