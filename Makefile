@@ -43,12 +43,12 @@ dev-pull:
 	@echo "🚀 Starting development build..."
 	docker compose --env-file $(ENV_DEV_FILE) -f $(COMPOSE_DEV) up --build -d
 
-# prod: 재시도 로직 추가 (최대 3회 시도) + DB 초기화
+# prod: 재시도 로직 추가 (최대 3회 시도) - 데이터 보존
 prod:
 	@echo "🚀 Starting production deployment..."
-	@echo "🗄️  Step 1: Cleaning up old containers and volumes..."
+	@echo "🗄️  Step 1: Stopping old containers (preserving data volumes)..."
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) down 2>/dev/null || true
-	@docker volume rm gaji_postgres-data 2>/dev/null || echo "No postgres volume to remove"
+	@# Data volumes (postgres, redis, chromadb) are preserved
 	@echo ""
 	@echo "📦 Step 2: Starting PostgreSQL first..."
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) up -d postgres
@@ -99,12 +99,12 @@ prod-pull:
 	@echo "🚀 Starting production build..."
 	docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) up --build -d
 
-# prod-safe: 안전한 프로덕션 빌드 (이미지를 먼저 pull한 후 개별 서비스 빌드)
+# prod-safe: 안전한 프로덕션 빌드 (이미지를 먼저 pull한 후 개별 서비스 빌드) - 데이터 보존
 prod-safe:
 	@echo "🔒 Starting safe production deployment..."
-	@echo "🗄️  Step 1: Cleaning up old containers and volumes..."
+	@echo "🗄️  Step 1: Stopping old containers (preserving data volumes)..."
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) down 2>/dev/null || true
-	@docker volume rm gaji_postgres-data 2>/dev/null || echo "No postgres volume to remove"
+	@# Data volumes (postgres, redis, chromadb) are preserved
 	@echo ""
 	@echo "📥 Step 2: Pre-pulling all base images..."
 	@$(MAKE) -s prod-pull-only
