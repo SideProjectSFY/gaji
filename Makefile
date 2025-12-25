@@ -43,13 +43,28 @@ dev-pull:
 	@echo "🚀 Starting development build..."
 	docker compose --env-file $(ENV_DEV_FILE) -f $(COMPOSE_DEV) up --build -d
 
-# prod: 재시도 로직 추가 (최대 3회 시도)
+# prod: 재시도 로직 추가 (최대 3회 시도) + DB 초기화
 prod:
-	@echo "🚀 Starting production build (with retry logic)..."
+	@echo "🚀 Starting production deployment..."
+	@echo "🗄️  Step 1: Cleaning up old containers and volumes..."
+	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) down 2>/dev/null || true
+	@docker volume rm gaji_postgres-data 2>/dev/null || echo "No postgres volume to remove"
+	@echo ""
+	@echo "📦 Step 2: Starting PostgreSQL first..."
+	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) up -d postgres
+	@echo "⏳ Waiting for PostgreSQL to initialize (15 seconds)..."
+	@sleep 15
+	@echo ""
+	@echo "🔍 Step 3: Verifying database creation..."
+	@docker exec gaji-postgres psql -U gaji_user -d gaji_db -c "SELECT version();" || \
+		(echo "❌ Database verification failed" && exit 1)
+	@echo "✅ Database ready!"
+	@echo ""
+	@echo "🚀 Step 4: Building and starting all services (with retry logic)..."
 	@for i in 1 2 3; do \
 		echo "📦 Build attempt $$i/3..."; \
 		if docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) up --build -d; then \
-			echo "✅ Build successful!"; \
+			echo "✅ Deployment successful!"; \
 			exit 0; \
 		else \
 			echo "❌ Build attempt $$i failed"; \
@@ -86,18 +101,32 @@ prod-pull:
 
 # prod-safe: 안전한 프로덕션 빌드 (이미지를 먼저 pull한 후 개별 서비스 빌드)
 prod-safe:
-	@echo "🔒 Starting safe production build..."
-	@echo "📥 Step 1: Pre-pulling all base images..."
+	@echo "🔒 Starting safe production deployment..."
+	@echo "🗄️  Step 1: Cleaning up old containers and volumes..."
+	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) down 2>/dev/null || true
+	@docker volume rm gaji_postgres-data 2>/dev/null || echo "No postgres volume to remove"
+	@echo ""
+	@echo "📥 Step 2: Pre-pulling all base images..."
 	@$(MAKE) -s prod-pull-only
 	@echo ""
-	@echo "🏗️  Step 2: Building services one by one..."
+	@echo "📦 Step 3: Starting PostgreSQL first..."
+	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) up -d postgres
+	@echo "⏳ Waiting for PostgreSQL to initialize (15 seconds)..."
+	@sleep 15
+	@echo ""
+	@echo "🔍 Step 4: Verifying database creation..."
+	@docker exec gaji-postgres psql -U gaji_user -d gaji_db -c "SELECT version();" || \
+		(echo "❌ Database verification failed" && exit 1)
+	@echo "✅ Database ready!"
+	@echo ""
+	@echo "🏗️  Step 5: Building services one by one..."
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) build --no-cache backend || echo "⚠️  Backend build failed"
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) build --no-cache ai-service || echo "⚠️  AI Service build failed"
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) build --no-cache monitor || echo "⚠️  Monitor build failed"
 	@echo ""
-	@echo "🚀 Step 3: Starting all services..."
+	@echo "🚀 Step 6: Starting all services..."
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) up -d
-	@echo "✅ Safe production build completed!"
+	@echo "✅ Safe production deployment completed!"
 
 # prod-pull-only: Base 이미지만 pull (빌드는 하지 않음)
 prod-pull-only:
