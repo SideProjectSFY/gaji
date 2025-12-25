@@ -1,14 +1,14 @@
-# Caddy Configuration
 localhost {
     @monitor path /monitor*
+    
+    basic_auth @monitor {
+        admin $2a$14$xvD5o9JzQkoCv.EM7ZMLJuowKwXScQuoFSiG1YsAS/QdkecYZZ.sG
+    }
+    
     handle @monitor {
-        basicauth * {
-            admin JDJhJDE0JHZCUFVEUHZVWmoyQTE5V2FlQzR0bWVtT2Myb3VhN29GdHhIZFBQWWRBUzlPUlNWWm9WalhT
-        }
+        uri strip_prefix /monitor
         reverse_proxy monitor:5000
     }
     
-    handle {
-        reverse_proxy backend:8080
-    }
+    reverse_proxy backend:8080
 }
