@@ -145,7 +145,7 @@ services:
     volumes:
       - ./gajiAI/rag-chatbot_test:/app
       - ./gajiAI/rag-chatbot_test/.env:/app/.env:ro
-      - ./.cursor:/app/.cursor  # Debug log directory
+      - ./.cursor:/app/.cursor # Debug log directory
     healthcheck:
       test:
         [
@@ -194,6 +194,39 @@ services:
     profiles:
       - import # Only run with: docker-compose --profile import run data-import
 
+  # Unified Monitoring System
+  monitor:
+    build:
+      context: .
+      dockerfile: monitoring/Dockerfile
+    container_name: gaji-monitor
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=${DB_NAME:-gaji_db}
+      - DB_USER=${DB_USER:-gaji_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CHROMADB_HOST=chromadb
+      - CHROMADB_PORT=8000
+      - MATTERMOST_WEBHOOK_URL=${MATTERMOST_WEBHOOK_URL}
+      - LOG_DIR=/app/logs
+      - REPORT_DIR=/app/reports
+      - TZ=Asia/Seoul
+    volumes:
+      - ./monitoring:/app
+      - ./logs/monitor:/app/logs
+      - ./monitoring/reports:/app/reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    networks:
+      - gaji-network
+    restart: unless-stopped
 
   # Vue.js Frontend (Pattern B: talks to Spring Boot only)
   #frontend:

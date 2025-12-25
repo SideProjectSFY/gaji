@@ -1,0 +1,15 @@
+# 통합 모니터링 Cron 작업
+
+# 통합 모니터링 (매 시간 정각)
+0 * * * * /usr/local/bin/python3 /app/scripts/unified_monitor.py >> /app/logs/cron.log 2>&1
+
+# 일일 상세 리포트 (매일 오전 7시)
+0 7 * * * /usr/local/bin/python3 /app/scripts/unified_monitor.py >> /app/logs/cron.log 2>&1
+
+# 일일 리포트 전송 (매일 오전 9시)
+0 9 * * * /usr/local/bin/python3 /app/scripts/send_daily_report.py >> /app/logs/cron.log 2>&1
+
+# 로그 로테이션 (매일 오전 2시 - 7일 이상 된 로그 자동 삭제)
+0 2 * * * /usr/local/bin/python3 /app/scripts/log_rotation.py >> /app/logs/rotation.log 2>&1
+
+

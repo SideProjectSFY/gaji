@@ -181,4 +181,7 @@ docs/EPIC_**
 
 # Docker & Environment
 .env
+.env.prod
 docker-compose.override.yml
+
+test-results

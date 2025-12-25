@@ -1,0 +1,14 @@
+localhost {
+    @monitor path /monitor*
+    
+    basic_auth @monitor {
+        admin $2a$14$xvD5o9JzQkoCv.EM7ZMLJuowKwXScQuoFSiG1YsAS/QdkecYZZ.sG
+    }
+    
+    handle @monitor {
+        uri strip_prefix /monitor
+        reverse_proxy monitor:5000
+    }
+    
+    reverse_proxy backend:8080
+}

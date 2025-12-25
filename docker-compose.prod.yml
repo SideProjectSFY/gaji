@@ -1,0 +1,263 @@
+networks:
+  gaji-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  chromadb-data:
+  redis-data:
+  caddy_data:
+  caddy_config:
+  caddy_logs:
+
+services:
+  # PostgreSQL - Metadata storage only
+  postgres:
+    image: postgres:15-alpine
+    container_name: gaji-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-gaji_db}
+      POSTGRES_USER: ${DB_USER:-gaji_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
+      - ./logs/postgres:/var/log/postgresql
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    # No ports exposed to host in prod
+    networks:
+      - gaji-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 384M
+          cpus: "0.25"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gaji_user -d gaji_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: gaji-redis
+    restart: always
+    volumes:
+      - redis-data:/data
+    # No ports exposed to host in prod
+    networks:
+      - gaji-network
+    command: |
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: "0.25"
+        reservations:
+          memory: 256M
+          cpus: "0.1"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ChromaDB
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: gaji-chromadb
+    restart: always
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+      - CHROMA_TELEMETRY_ENABLED=false
+      - CHROMA_SERVER_METRICS=false
+      - CHROMA_LOG_LEVEL=WARN
+      - CHROMA_LOG_PATH=/logs
+    volumes:
+      - chromadb-data:/chroma/chroma
+      - ./logs/chroma:/logs
+    # No ports exposed to host in prod
+    networks:
+      - gaji-network
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+          cpus: "0.5"
+        reservations:
+          memory: 1024M
+          cpus: "0.25"
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q ':1F40' /proc/net/tcp || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Spring Boot - API Gateway
+  backend:
+    build:
+      context: ./gajiBE
+      dockerfile: Dockerfile.prod
+    container_name: gaji-backend
+    restart: always
+    env_file:
+      - .env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-gaji_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-gaji_user}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gaji-network
+    # No volume mounts for code (use built image)
+    deploy:
+      resources:
+        limits:
+          memory: 896M
+          cpus: "1.0"
+        reservations:
+          memory: 768M
+          cpus: "0.5"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # FastAPI - AI service
+  ai-service:
+    build:
+      context: ./gajiAI/rag-chatbot_test
+      dockerfile: Dockerfile.prod
+    container_name: gaji-ai-service
+    restart: always
+    env_file:
+      - .env.prod
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    networks:
+      - gaji-network
+    # No volume mounts for code
+    deploy:
+      resources:
+        limits:
+          memory: 640M
+          cpus: "0.75"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/health'')"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Monitoring Service
+  monitor:
+    build:
+      context: .
+      dockerfile: monitoring/Dockerfile
+    container_name: gaji-monitor
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    expose:
+      - "5000"
+    volumes:
+      - ./monitoring:/app
+      - ./logs/monitor:/app/logs
+      - ./monitoring/reports:/app/reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    networks:
+      - gaji-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  # Caddy Reverse Proxy
+  caddy:
+    image: caddy:2-alpine
+    container_name: gaji-caddy
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_logs:/logs
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - gaji-network
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+          cpus: "0.3"
+        reservations:
+          memory: 50M
+          cpus: "0.1"
+    depends_on:
+      backend:
+        condition: service_healthy
+      monitor:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "caddy", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - DOMAIN=${DOMAIN}
+      - MONITOR_USERNAME=${MONITOR_USERNAME}
+      - MONITOR_PASSWORD_HASH=${MONITOR_PASSWORD_HASH}
