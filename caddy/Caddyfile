@@ -23,19 +23,8 @@ localhost {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 api.gaji.me {
-    # CORS 헤더
-    header {
-        Access-Control-Allow-Origin "https://gaji.me,https://www.gaji.me"
-        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-        Access-Control-Allow-Headers "Authorization, Content-Type, X-User-Id"
-        Access-Control-Allow-Credentials "true"
-    }
-
-    # OPTIONS 요청 처리
-    @options method OPTIONS
-    handle @options {
-        respond 204
-    }
+    # CORS는 Spring Boot에서 처리하므로 Caddy에서는 제거
+    # (중복 헤더 방지)
 
     # 모니터링 엔드포인트
     @monitor path /monitor*
