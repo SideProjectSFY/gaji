@@ -22,10 +22,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./infra/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./infra/postgres/init:/docker-entrypoint-initdb.d
-      - ./logs/postgres:/var/log/postgresql
-    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     # No ports exposed to host in prod
     networks:
       - gaji-network
