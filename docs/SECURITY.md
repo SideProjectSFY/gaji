@@ -1155,8 +1155,8 @@ public class CorsConfig {
 
         // Production
         config.setAllowedOrigins(List.of(
-            "https://gaji.app",
-            "https://www.gaji.app"
+            "https://gaji.me",
+            "https://www.gaji.me"
         ));
 
         // Development
