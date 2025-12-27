@@ -79,14 +79,6 @@ graph TB
   - 대화 생성 (Celery를 통한 비동기)
 - **Never accesses**: PostgreSQL (Spring Boot API 호출을 통해 메타데이터 수신)
 
-**Why Pattern B Was Chosen**:
-
-1. **보안**: FastAPI 및 Gemini API 키의 외부 노출 방지
-2. **단순성**: 프론트엔드가 하나의 API 클라이언트만 관리
-3. **중앙화된 로깅**: 모든 요청이 Spring Boot를 통과하여 추적 및 모니터링 용이
-4. **비용**: SSL 인증서/도메인 비용 절감 (연간 $700)
-5. **성능**: +50ms 프록시 오버헤드는 5000ms AI 작업에서 무시 가능 (1%)
-
 #### Hybrid Database Architecture
 
 플랫폼은 **PostgreSQL (관계형 메타데이터)**과 **VectorDB (콘텐츠 및 임베딩)**를 분리하여 최적의 성능, 확장성 및 비용 효율성을 달성합니다.
@@ -254,32 +246,6 @@ gaji/                      # 최상위 레포지토리 (Docker Compose 통합)
 - **시나리오 트리**: 재귀적 Vue 컴포넌트로 분기 구조 시각화
 - **소셜 공유**: og:image 카드 자동 생성
 - **큐레이션**: "Timeline of the Week" 에디토리얼 추천
-
-## Architecture Highlights
-
-### Triple-Redundancy Async Processing
-
-대규모 트래픽 처리를 위한 3단계 병렬 처리:
-
-1. **Thread Pool (Primary)**: 가장 빠른 응답 (5 workers)
-2. **Celery (Secondary)**: Redis 기반 분산 작업 큐
-3. **Kafka (Tertiary)**: 메시지 영속성 보장 (Consumer Group)
-
-### Distributed Locking Strategy
-
-Redis 분산 락으로 동시성 문제 해결:
-
-- UUID 기반 소유권 검증
-- 자동 TTL로 데드락 방지
-- 사물함별 독립적인 락
-
-### Blockchain-Based Audit Trail
-
-Ethereum을 활용한 변조 불가능한 대여 이력 관리:
-
-- 학생의 사물함 사용 이력을 블록체인에 영구 기록
-- 대여/반납 시점의 변조 방지
-- NFT 기반 디지털 증명서 발급
 
 ## Team
 
