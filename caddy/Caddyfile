@@ -36,7 +36,18 @@ api.gaji.me {
         reverse_proxy monitor:5000
     }
 
-    # 백엔드 API
+    # 백엔드 API (Core)
+    handle /api/core/* {
+        reverse_proxy backend:8080
+    }
+
+    # AI API (FastAPI direct)
+    handle_path /api/ai/* {
+        rewrite * /api{uri}
+        reverse_proxy ai-service:8000
+    }
+
+    # 기본 라우팅 (하위 호환성 유지)
     reverse_proxy backend:8080 {
         health_uri /actuator/health
         health_interval 10s

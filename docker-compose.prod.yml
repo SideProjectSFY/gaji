@@ -121,8 +121,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-gaji_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-gaji_user}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     depends_on:
       postgres:
         condition: service_healthy

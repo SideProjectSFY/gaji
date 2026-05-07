@@ -5,6 +5,7 @@ networks:
 volumes:
   postgres-data:
   chromadb-data:
+  elasticsearch-data:
   redis-data:
 
 services:
@@ -69,6 +70,33 @@ services:
       retries: 5
       start_period: 15s
 
+  # Elasticsearch - BM25 passage index for local retrieval evaluation
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.16.1
+    container_name: gaji-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - gaji-network
+    mem_limit: 1g
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s >/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
   # Spring Boot - API Gateway (Pattern B)
   backend:
     build:
@@ -85,6 +113,8 @@ services:
       # Redis (for health check)
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # JWT Authentication (must match FastAPI JWT_SECRET_KEY)
+      JWT_SECRET: ${JWT_SECRET:-gaji-secret-key-change-in-production}
       # Gemini API keys (used by FastAPI, passed for config validation)
       GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
     ports:
@@ -110,21 +140,43 @@ services:
   # FastAPI - Internal-only AI service (Pattern B)
   ai-service:
     build:
-      context: ./gajiAI/rag-chatbot_test
+      context: ./gajiAI
       dockerfile: Dockerfile.dev
     container_name: gaji-ai-service
+    env_file:
+      - ./gajiAI/.env
     environment:
-      # Gemini API (supports multiple keys via GEMINI_API_KEYS)
-      GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
       # VectorDB
       VECTORDB_TYPE: chromadb
       CHROMADB_HOST: chromadb
       CHROMADB_PORT: 8000
+      CHROMADB_PATH: /app/chroma_data
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_INDEX_NAME: gaji_novel_passages_v1
+      ELASTICSEARCH_ALIAS_NAME: gaji_novel_passages_current
+      RAG_VECTOR_COLLECTION_NAME: novel_passages
+      RAG_RRF_K: 60
+      RAG_RRF_VECTOR_WEIGHT: 2.0
+      RAG_RRF_BM25_WEIGHT: 1.0
+      RAG_HYBRID_RANKING_POLICY: vector_primary_rrf_fallback
+      RAG_CANDIDATE_K_VECTOR: 50
+      RAG_CANDIDATE_K_BM25: 50
+      EMBEDDING_MODEL_ID: models/gemini-embedding-001
+      EMBEDDING_OUTPUT_DIMENSIONALITY: 768
+      EMBEDDING_DOCUMENT_TASK_TYPE: RETRIEVAL_DOCUMENT
+      EMBEDDING_QUERY_TASK_TYPE: RETRIEVAL_QUERY
+      EMBEDDING_REQUEST_TIMEOUT_MS: 30000
+      EMBEDDING_QUERY_CACHE_ENABLED: "true"
+      EMBEDDING_QUERY_CACHE_MAX_ENTRIES: 2048
+      EMBEDDING_QUERY_CACHE_PATH: /app/reports/rag/query_embedding_cache.jsonl
       # Spring Boot URL (for callbacks)
       SPRING_BOOT_BASE_URL: http://backend:8080
       # JWT Authentication (must match Spring Boot JWT_SECRET)
       JWT_SECRET_KEY: ${JWT_SECRET:-gaji-secret-key-change-in-production}
       JWT_ALGORITHM: HS256
+      AI_BROKER_AUDIENCE: gaji-ai-direct
+      AI_BROKER_REQUIRED_SCOPE: ai:chat:complete
+      AI_BROKER_ISSUER: gaji-backend
       # Redis for Celery + Long Polling (600s TTL)
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -140,11 +192,12 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     networks:
       - gaji-network
     volumes:
-      - ./gajiAI/rag-chatbot_test:/app
-      - ./gajiAI/rag-chatbot_test/.env:/app/.env:ro
+      - ./gajiAI:/app
       - ./.cursor:/app/.cursor # Debug log directory
     healthcheck:
       test:
@@ -160,23 +213,28 @@ services:
   # Data Import Service (run manually: docker-compose run --rm data-import)
   data-import:
     build:
-      context: ./gajiAI/rag-chatbot_test
+      context: ./gajiAI
       dockerfile: Dockerfile.dev
     container_name: gaji-data-import
+    env_file:
+      - ./gajiAI/.env
     environment:
       VECTORDB_TYPE: chromadb
       CHROMADB_HOST: chromadb
       CHROMADB_PORT: 8000
+      ELASTICSEARCH_URL: http://elasticsearch:9200
       SPRING_BOOT_URL: http://backend:8080
     depends_on:
       chromadb:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
       backend:
         condition: service_healthy
     networks:
       - gaji-network
     volumes:
-      - ./gajiAI/rag-chatbot_test:/app
+      - ./gajiAI:/app
       - ./data:/data # Mount dataset directory
     working_dir: /app
     entrypoint: ["python", "scripts/import_dataset.py"]
