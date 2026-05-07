@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gaji Interactive Prototype</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --line: #e5e7eb;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #1d4ed8;
+      --secondary: #0ea5e9;
+      --fork: #0e7490;
+      --ok: #166534;
+      --warn: #b45309;
+      --error: #b91c1c;
+      --path-base: #1e40af;
+      --path-fork: #0e7490;
+      --space: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+      line-height: 1.55;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header { padding: calc(var(--space) * 2) calc(var(--space) * 2.5); background: #fff; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 20px; }
+    .small { color: var(--muted); font-size: 12px; }
+    .tabs { display: flex; gap: 8px; }
+    .tab { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 13px; }
+    .tab.active { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+    main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+    .screen { display: none; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+    .screen.active { display: block; }
+    .top { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 11px; }
+    .chip.base { color: var(--path-base); background: #eff6ff; }
+    .chip.fork { color: var(--path-fork); background: #ecfeff; }
+    .chip.ok { color: var(--ok); background: #f0fdf4; }
+    .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 320px; }
+    .left { border-right: 1px solid var(--line); padding: 10px; }
+    .path { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 6px; font-size: 12px; }
+    .path.active { border-color: var(--path-base); background: #eef4ff; }
+    .right { display: grid; grid-template-rows: 1fr auto auto; }
+    .msgs { padding: 12px; display: grid; gap: 8px; align-content: start; }
+    .msg { max-width: 72%; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+    .msg.me { margin-left: auto; background: #eff6ff; }
+    .note { border-top: 1px solid var(--line); padding: 8px 10px; font-size: 12px; color: var(--muted); }
+    .composer { border-top: 1px solid var(--line); padding: 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 8px; }
+    input[type="text"] { border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 13px; }
+    button { border: none; border-radius: 8px; padding: 8px 10px; font-size: 12px; cursor: pointer; }
+    .btn-fork { background: #ecfeff; color: #155e75; }
+    .btn-send { background: var(--primary); color: #fff; }
+    .btn-retry { background: #fff7ed; color: var(--warn); border: 1px solid #fed7aa; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .left { border-right: none; border-bottom: 1px solid var(--line); }
+      .composer { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>gaji Interactive Prototype</h1>
+      <div class="small">Flows: Continue • Fork • Recovery (click tabs)</div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-target="continue">Continue</button>
+      <button class="tab" data-target="fork">Fork</button>
+      <button class="tab" data-target="recovery">Recovery</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="continue" class="screen active">
+      <div class="top"><strong>Continue Story Path</strong><div class="chips"><span class="chip base">Base Path</span><span class="chip ok">Context Restored</span></div></div>
+      <div class="layout">
+        <aside class="left"><div class="path active">Current Path</div><div class="path">Fork A</div><div class="path">Fork B</div></aside>
+        <div class="right">
+          <div class="msgs"><div class="msg">You are back at your latest confirmed moment.</div><div class="msg me">Great, continue from here.</div></div>
+          <div class="note">One-glance checkpoint: next action is clear and typing-ready.</div>
+          <div class="composer"><input type="text" value="Type next message..." /><button class="btn-fork">Try Another Path</button><button class="btn-send">Send</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="fork" class="screen">
+      <div class="top"><strong>In-Context Fork</strong><div class="chips"><span class="chip fork">Fork Path</span><span class="chip ok">Path Confirmed</span></div></div>
+      <div class="layout">
+        <aside class="left"><div class="path">Base Path</div><div class="path active">Fork from Turn 12</div></aside>
+        <div class="right">
+          <div class="msgs"><div class="msg">Fork created from current turn.</div><div class="msg me">Continue this branch.</div><div class="msg">Now writing in: Fork from Turn 12.</div></div>
+          <div class="note">Idempotent behavior: repeated fork action must not create duplicates.</div>
+          <div class="composer"><input type="text" value="Continue in branch..." /><button class="btn-fork">Fork from Here</button><button class="btn-send">Send</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="recovery" class="screen">
+      <div class="top"><strong>Recovery & Safe Resume</strong><div class="chips"><span class="chip base">Last Confirmed</span><span class="chip">Calm Recovery</span></div></div>
+      <div class="layout">
+        <aside class="left"><div class="path active">Recovery State</div><div class="path">Safe Resume</div></aside>
+        <div class="right">
+          <div class="msgs"><div class="msg">We restored your latest confirmed moment.</div><div class="msg">Your draft is safe. Continue from here.</div><div class="msg me">Resume writing.</div></div>
+          <div class="note">One clear next action, non-technical message, draft preserved.</div>
+          <div class="composer"><input type="text" value="Recovered draft..." /><button class="btn-retry">Retry</button><button class="btn-send">Send</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tabs = document.querySelectorAll('.tab');
+    const screens = document.querySelectorAll('.screen');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        screens.forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.target).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

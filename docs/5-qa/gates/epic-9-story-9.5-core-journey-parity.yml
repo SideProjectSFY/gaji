@@ -1,0 +1,21 @@
+story: "9.5"
+story_title: "Core Journey Parity (Scenario/Conversation/Social/Search)"
+epic: "9"
+decision: "PASS"
+status_reason: "Previously reported parity gaps were fixed: scenario fork flow implemented and covered, follow/unfollow mutation is deterministic, and rollback toggle assertions now validate downstream success."
+reviewed_at: "2026-02-18"
+reviewer: "QA Agent"
+quality_score: 93
+expires_at: "2026-03-04"
+
+findings: []
+
+ac_coverage:
+  browser_to_backend_api_only: "pass"
+  scenario_parity: "pass"
+  conversation_parity: "pass"
+  social_parity: "pass"
+  search_parity: "pass"
+  auth_ownership_visibility: "pass"
+  rollback_flags_immediate_switch: "pass"
+  e2e_suite: "pass"
