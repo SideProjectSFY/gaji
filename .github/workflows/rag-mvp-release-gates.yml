@@ -15,6 +15,49 @@ on:
         required: true
         type: boolean
         default: false
+      rag_warmup_queries:
+        description: "RAG gate warmup query count"
+        required: true
+        type: number
+        default: 10
+      rag_min_latency_samples:
+        description: "RAG gate measured latency sample count"
+        required: true
+        type: number
+        default: 100
+      rag_concurrency:
+        description: "RAG gate concurrency"
+        required: true
+        type: number
+        default: 5
+      chat_transport:
+        description: "Learner chat gate transport"
+        required: true
+        type: choice
+        default: stream
+        options:
+          - stream
+          - sync
+      chat_warmups:
+        description: "Learner chat gate warmup request count"
+        required: true
+        type: number
+        default: 10
+      chat_measured_requests:
+        description: "Learner chat gate measured request count"
+        required: true
+        type: number
+        default: 100
+      chat_concurrency:
+        description: "Learner chat gate concurrency"
+        required: true
+        type: number
+        default: 5
+      chat_p95_latency_ms:
+        description: "Learner chat p95 latency threshold in milliseconds"
+        required: true
+        type: number
+        default: 8000
 
 jobs:
   frontend-rag-ui-gate:
@@ -101,6 +144,15 @@ jobs:
 
       - name: Run quota-safe release-gate dry runs
         working-directory: gajiAI
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+          GAJI_GATE_ADMIN_EMAIL: ${{ secrets.GAJI_GATE_ADMIN_EMAIL }}
+          GAJI_GATE_ADMIN_PASSWORD: ${{ secrets.GAJI_GATE_ADMIN_PASSWORD }}
+          GAJI_CHAT_GATE_OWNER_EMAIL: ${{ secrets.GAJI_CHAT_GATE_OWNER_EMAIL }}
+          GAJI_CHAT_GATE_OWNER_PASSWORD: ${{ secrets.GAJI_CHAT_GATE_OWNER_PASSWORD }}
+          GAJI_CHAT_GATE_OTHER_EMAIL: ${{ secrets.GAJI_CHAT_GATE_OTHER_EMAIL }}
+          GAJI_CHAT_GATE_OTHER_PASSWORD: ${{ secrets.GAJI_CHAT_GATE_OTHER_PASSWORD }}
         run: |
           mkdir -p reports/release-gates
           python scripts/run_rag_release_gate.py --dry-run --output-dir reports/release-gates | tee reports/release-gates/rag_dry_run_latest.json
@@ -142,6 +194,48 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Validate provider-backed gate secrets
+        env:
+          FASTAPI_BASE_URL: ${{ secrets.FASTAPI_BASE_URL }}
+          SPRING_BASE_URL: ${{ secrets.SPRING_BASE_URL }}
+          GAJI_GATE_ADMIN_EMAIL: ${{ secrets.GAJI_GATE_ADMIN_EMAIL }}
+          GAJI_GATE_ADMIN_PASSWORD: ${{ secrets.GAJI_GATE_ADMIN_PASSWORD }}
+          GAJI_GATE_NOVEL_ID: ${{ secrets.GAJI_GATE_NOVEL_ID }}
+          GAJI_CHAT_GATE_OWNER_EMAIL: ${{ secrets.GAJI_CHAT_GATE_OWNER_EMAIL }}
+          GAJI_CHAT_GATE_OWNER_PASSWORD: ${{ secrets.GAJI_CHAT_GATE_OWNER_PASSWORD }}
+          GAJI_CHAT_GATE_OTHER_EMAIL: ${{ secrets.GAJI_CHAT_GATE_OTHER_EMAIL }}
+          GAJI_CHAT_GATE_OTHER_PASSWORD: ${{ secrets.GAJI_CHAT_GATE_OTHER_PASSWORD }}
+          GAJI_CHAT_GATE_CONVERSATION_ID: ${{ secrets.GAJI_CHAT_GATE_CONVERSATION_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+        run: |
+          missing=()
+          for name in \
+            FASTAPI_BASE_URL \
+            SPRING_BASE_URL \
+            GAJI_GATE_ADMIN_EMAIL \
+            GAJI_GATE_ADMIN_PASSWORD \
+            GAJI_GATE_NOVEL_ID \
+            GAJI_CHAT_GATE_OWNER_EMAIL \
+            GAJI_CHAT_GATE_OWNER_PASSWORD \
+            GAJI_CHAT_GATE_OTHER_EMAIL \
+            GAJI_CHAT_GATE_OTHER_PASSWORD \
+            GAJI_CHAT_GATE_CONVERSATION_ID; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ -z "${GEMINI_API_KEY:-}" ] && [ -z "${GEMINI_API_KEYS:-}" ]; then
+            missing+=("GEMINI_API_KEY or GEMINI_API_KEYS")
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing required provider gate secrets:\n'
+            printf -- '- %s\n' "${missing[@]}"
+            exit 1
+          fi
+
       - name: Run provider-backed RAG gate
         working-directory: gajiAI
         env:
@@ -152,10 +246,15 @@ jobs:
           GAJI_GATE_NOVEL_ID: ${{ secrets.GAJI_GATE_NOVEL_ID }}
           RAG_READ_TOKEN: ${{ secrets.RAG_READ_TOKEN }}
           RAG_EVALUATE_TOKEN: ${{ secrets.RAG_EVALUATE_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
           GAJI_GATE_OUTPUT_DIR: reports/release-gates
         run: |
           mkdir -p reports/release-gates
-          python scripts/run_rag_release_gate.py
+          python scripts/run_rag_release_gate.py \
+            --warmup-queries "${{ inputs.rag_warmup_queries }}" \
+            --min-latency-samples "${{ inputs.rag_min_latency_samples }}" \
+            --concurrency "${{ inputs.rag_concurrency }}"
 
       - name: Run provider-backed learner chat gate
         working-directory: gajiAI
@@ -166,8 +265,90 @@ jobs:
           GAJI_CHAT_GATE_OTHER_EMAIL: ${{ secrets.GAJI_CHAT_GATE_OTHER_EMAIL }}
           GAJI_CHAT_GATE_OTHER_PASSWORD: ${{ secrets.GAJI_CHAT_GATE_OTHER_PASSWORD }}
           GAJI_CHAT_GATE_CONVERSATION_ID: ${{ secrets.GAJI_CHAT_GATE_CONVERSATION_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
           GAJI_CHAT_GATE_OUTPUT_DIR: reports/release-gates
-        run: python scripts/run_chat_release_gate.py
+        run: |
+          python scripts/run_chat_release_gate.py \
+            --transport "${{ inputs.chat_transport }}" \
+            --warmups "${{ inputs.chat_warmups }}" \
+            --measured-requests "${{ inputs.chat_measured_requests }}" \
+            --concurrency "${{ inputs.chat_concurrency }}" \
+            --p95-latency-ms "${{ inputs.chat_p95_latency_ms }}"
+
+      - name: Write provider-backed gate summary
+        if: always()
+        working-directory: gajiAI
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import math
+          import statistics
+          from pathlib import Path
+
+          report_dir = Path("reports/release-gates")
+
+          def latest(pattern):
+              matches = sorted(report_dir.glob(pattern))
+              return matches[-1] if matches else None
+
+          def quantile(values, pct):
+              values = sorted(float(value) for value in values if value is not None)
+              if not values:
+                  return None
+              index = max(0, min(len(values) - 1, math.ceil(len(values) * pct) - 1))
+              return round(values[index], 1)
+
+          def summary(values):
+              values = sorted(float(value) for value in values if value is not None)
+              if not values:
+                  return "`n/a`"
+              return (
+                  f"count `{len(values)}`, p50 `{round(statistics.median(values), 1)} ms`, "
+                  f"p95 `{quantile(values, 0.95)} ms`, max `{round(values[-1], 1)} ms`"
+              )
+
+          print("## Provider-backed RAG/Chat Release Gates")
+
+          rag_path = latest("rag_release_gate_*.json")
+          if rag_path is None:
+              print("- RAG: no artifact found")
+          else:
+              rag = json.loads(rag_path.read_text())
+              full_gate = rag.get("full_gate") or {}
+              response = full_gate.get("response") or {}
+              gates = response.get("release_gates") or {}
+              print(f"- RAG status: `{rag.get('status')}`")
+              print(f"- RAG gates passed: `{gates.get('passed')}`")
+              for mode, payload in (response.get("modes") or {}).items():
+                  metrics = payload.get("metrics") or {}
+                  latency = payload.get("latency") or {}
+                  print(
+                      f"  - {mode}: Hit@10 `{metrics.get('Hit@10')}`, "
+                      f"nDCG@10 `{metrics.get('nDCG@10')}`, "
+                      f"p95 `{latency.get('p95_ms')} ms`"
+                  )
+
+          chat_path = latest("chat_release_gate_*.json")
+          if chat_path is None:
+              print("- Chat: no artifact found")
+          else:
+              chat = json.loads(chat_path.read_text())
+              measured = chat.get("measured_results") or []
+              gate = chat.get("gate") or {}
+              failed = [
+                  name for name, passed in (gate.get("assertions") or {}).items()
+                  if not passed
+              ]
+              print(f"- Chat status: `{chat.get('status')}`")
+              print(f"- Chat decision: `{gate.get('decision')}`")
+              print(f"- Chat latency: {summary(item.get('elapsed_ms') for item in measured)}")
+              print(f"- Chat first delta: {summary(item.get('stream_first_delta_ms') for item in measured)}")
+              print(f"- Chat fallback count: `{sum(1 for item in measured if item.get('fallback_used'))}`")
+              print(f"- Chat prompt marker leak count: `{sum(1 for item in measured if item.get('prompt_marker_revealed'))}`")
+              print(f"- Chat citation text leak count: `{sum(1 for item in measured if item.get('citation_has_text'))}`")
+              print(f"- Chat failed assertions: `{failed or 'none'}`")
+          PY
 
       - name: Upload provider-backed gate artifacts
         if: always()
