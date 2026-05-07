@@ -18,6 +18,8 @@ The workflow has three layers:
 | AI runner dry run | Pull request and manual | Validates release-gate scripts and configuration shape without Gemini calls |
 | Provider-backed release gates | Manual only | Runs live RAG and streaming chat gates against configured services |
 
+Both AI gate jobs install `gajiAI/requirements.txt` before running tests or gate scripts, so CI exercises the same app dependencies used by the local runner.
+
 ## Manual Provider Gate
 
 Run the workflow manually from GitHub Actions:
@@ -128,3 +130,13 @@ Latest local provider-backed full run:
 - First-delta p95: `2155.2 ms`
 - Fallback count: `0`
 - Citation text leak count: `0`
+
+Latest post-review gate closure:
+
+- RAG artifact: `docs/5-qa/release-gate-runs/rag_release_gate_1778152342.json`
+- RAG decision: `PASS`
+- Hybrid `FalsePositive@10`: `0.0`
+- Stream artifact: `docs/5-qa/release-gate-runs/chat_release_gate_1778152361.json`
+- Stream decision: `PASS`
+- Smoke artifact: `docs/5-qa/release-gate-runs/staging_smoke_1778152859.json`
+- Smoke decision: `PASS`

@@ -1,0 +1,31 @@
+{
+  "owner_login_status": 200,
+  "token_received": true,
+  "messages_status": 200,
+  "message_count": 701,
+  "assistant_count": 347,
+  "latest_assistant_id": "24e2731c-d438-4464-b687-f09b3ef1b6ac",
+  "rag_sources_first_status": 200,
+  "rag_sources_second_status": 200,
+  "rag_source_citation_count": 4,
+  "rag_source_passage_count": null,
+  "rag_source_missing_count": 0,
+  "rag_source_has_passage_text": true,
+  "stream_endpoint_status": 200,
+  "stream_event_names": [
+    "accepted",
+    "user_message",
+    "context_ready",
+    "delta",
+    "delta",
+    "completed"
+  ],
+  "stream_delta_count": 2,
+  "stream_completed_event_present": true,
+  "stream_delta_before_completed": true,
+  "stream_elapsed_ms": 1967.7,
+  "stream_error_prefix": null,
+  "status": "pass",
+  "rag_source_available_count": 4,
+  "rag_source_has_citation_text": true
+}
