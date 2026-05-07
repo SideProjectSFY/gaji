@@ -185,3 +185,11 @@ docs/EPIC_**
 docker-compose.override.yml
 
 test-results
+_bmad
+_bmad-output
+.agent
+.agents
+.gemini
+.github/agents
+.github/prompts
+.github/copilot-instructions.md
