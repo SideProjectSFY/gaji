@@ -136,11 +136,15 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run AI release-gate runner unit tests
+      - name: Install AI dependencies
         working-directory: gajiAI
         run: |
-          python -m pip install --upgrade pip pytest
-          pytest -q tests/test_release_gate_runner.py tests/test_chat_release_gate_runner.py
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run AI release-gate runner unit tests
+        working-directory: gajiAI
+        run: pytest -q tests/test_release_gate_runner.py tests/test_chat_release_gate_runner.py
 
       - name: Run quota-safe release-gate dry runs
         working-directory: gajiAI
@@ -193,6 +197,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Install AI dependencies
+        working-directory: gajiAI
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: Validate provider-backed gate secrets
         env:
