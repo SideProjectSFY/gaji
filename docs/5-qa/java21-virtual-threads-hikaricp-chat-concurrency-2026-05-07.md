@@ -116,4 +116,4 @@ Then tune from the gate:
 
 - Add dashboard panels for Hikari pending/timeouts and AI chat saturation.
 - Add a CI/manual workflow that runs the 5/20/50 gate against a seeded environment.
-- Consider SSE or async chat delivery next so the user sees progress while provider work continues.
+- Expand the chat release gate to assert `delta` events arrive before `completed` for provider-backed streaming.
