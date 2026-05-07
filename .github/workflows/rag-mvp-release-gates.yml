@@ -116,7 +116,12 @@ jobs:
           print("## RAG MVP Release Gate Dry Run")
           for name in ("rag", "chat"):
               payload = json.loads(Path(f"reports/release-gates/{name}_dry_run_latest.json").read_text())
-              print(f"- {name}: `{payload['status']}`, provider gate ready: `{payload.get('provider_gate_ready')}`")
+              protocol = payload.get("protocol") or {}
+              details = [f"provider gate ready: `{payload.get('provider_gate_ready')}`"]
+              if name == "chat":
+                  details.append(f"transport: `{protocol.get('transport')}`")
+                  details.append(f"delta gate: `{protocol.get('requires_delta_before_completed')}`")
+              print(f"- {name}: `{payload['status']}`, " + ", ".join(details))
           PY
 
       - name: Upload dry-run artifacts
