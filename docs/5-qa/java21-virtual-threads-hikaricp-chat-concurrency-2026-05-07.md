@@ -54,6 +54,9 @@ Spring Actuator should expose the Hikari pool shape under the standard Micromete
 
 For release gates, correlate these with:
 
+- `gaji.ai.chat.generation.active`
+- `gaji.ai.chat.generation.available`
+- `gaji.ai.chat.generation.saturated`
 - chat p50/p95/p99 latency
 - FastAPI provider elapsed time
 - RAG fallback rate
