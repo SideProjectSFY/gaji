@@ -42,6 +42,48 @@ Default contract:
 | `chat_concurrency` | 5 |
 | `chat_p95_latency_ms` | 8000 |
 
+## Local Parity Commands
+
+Use these commands before changing the workflow or runner contracts:
+
+```bash
+cd gajiFE
+pnpm install --frozen-lockfile
+pnpm test:run
+pnpm build:check
+pnpm exec playwright install --with-deps chromium
+pnpm run test:e2e:chromium
+```
+
+```bash
+cd gajiAI
+pytest -q tests/test_release_gate_runner.py tests/test_chat_release_gate_runner.py tests/test_release_gate_workflow.py
+python scripts/run_rag_release_gate.py --dry-run --output-dir /tmp
+python scripts/run_chat_release_gate.py --dry-run --output-dir /tmp
+```
+
+Provider-backed local parity should be run only against a seeded environment with ignored local `.env` values or shell-provided secrets:
+
+```bash
+cd gajiAI
+python scripts/run_rag_release_gate.py \
+  --fastapi-base-url "$FASTAPI_BASE_URL" \
+  --spring-base-url "$SPRING_BASE_URL" \
+  --warmup-queries 10 \
+  --min-latency-samples 100 \
+  --concurrency 5 \
+  --output-dir reports/release-gates
+
+python scripts/run_chat_release_gate.py \
+  --spring-base-url "$SPRING_BASE_URL" \
+  --transport stream \
+  --warmups 10 \
+  --measured-requests 100 \
+  --concurrency 5 \
+  --p95-latency-ms 8000 \
+  --output-dir reports/release-gates
+```
+
 ## Required Secrets
 
 Provider-backed gates require live service URLs, seeded E2E accounts, a seeded conversation, and provider credentials.
@@ -59,10 +101,12 @@ Provider-backed gates require live service URLs, seeded E2E accounts, a seeded c
 | `GAJI_CHAT_GATE_OTHER_PASSWORD` | Chat gate | Stored only as GitHub secret |
 | `GAJI_CHAT_GATE_CONVERSATION_ID` | Chat gate | Seeded conversation with indexed novel context |
 | `GEMINI_API_KEY` or `GEMINI_API_KEYS` | Provider config | Use GitHub secrets; rotate local keys before staging/prod |
-| `RAG_READ_TOKEN` | Optional RAG shortcut | Avoids broker login for preflight if supplied |
-| `RAG_EVALUATE_TOKEN` | Optional RAG shortcut | Avoids broker login for full evaluation if supplied |
+| `RAG_READ_TOKEN` | Optional RAG shortcut | Avoids broker login for preflight if supplied with `RAG_EVALUATE_TOKEN` |
+| `RAG_EVALUATE_TOKEN` | Optional RAG shortcut | Avoids broker login for full evaluation if supplied with `RAG_READ_TOKEN` |
 
 Do not commit `.env` values or paste keys into reports. The workflow validates that required secrets exist but never prints their values.
+
+For the RAG gate, CI may use either admin credentials or the token pair. The chat gate still requires owner/other-user credentials because it validates conversation ownership and persisted chat behavior through Spring.
 
 ## Expected Artifacts
 
@@ -72,6 +116,8 @@ Each provider-backed run uploads:
 - `chat_release_gate_*.json`
 - GitHub job summary with RAG quality and chat streaming metrics
 
+Release artifacts must remain non-debug artifacts. They should include citation IDs, ranking metadata, latency, fallback, and gate signals, but not full passage text. Debug/source passage text exposure remains gated by the debug/source lookup policy and must only appear in intentionally generated debug-only reports.
+
 The chat summary highlights:
 
 - request p50/p95/max
@@ -79,6 +125,8 @@ The chat summary highlights:
 - fallback count
 - prompt-marker leak count
 - citation text leak count
+- quota/provider exhaustion signal
+- artifact path
 - failed assertions
 
 The RAG summary highlights:
@@ -87,6 +135,8 @@ The RAG summary highlights:
 - Hit@10 by mode
 - nDCG@10 by mode
 - p95 latency by mode
+- quota/provider exhaustion signal
+- artifact path
 
 ## Operational Metrics To Track
 

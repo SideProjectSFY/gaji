@@ -144,7 +144,7 @@ jobs:
 
       - name: Run AI release-gate runner unit tests
         working-directory: gajiAI
-        run: pytest -q tests/test_release_gate_runner.py tests/test_chat_release_gate_runner.py
+        run: pytest -q tests/test_release_gate_runner.py tests/test_chat_release_gate_runner.py tests/test_release_gate_workflow.py
 
       - name: Run quota-safe release-gate dry runs
         working-directory: gajiAI
@@ -210,6 +210,8 @@ jobs:
           SPRING_BASE_URL: ${{ secrets.SPRING_BASE_URL }}
           GAJI_GATE_ADMIN_EMAIL: ${{ secrets.GAJI_GATE_ADMIN_EMAIL }}
           GAJI_GATE_ADMIN_PASSWORD: ${{ secrets.GAJI_GATE_ADMIN_PASSWORD }}
+          RAG_READ_TOKEN: ${{ secrets.RAG_READ_TOKEN }}
+          RAG_EVALUATE_TOKEN: ${{ secrets.RAG_EVALUATE_TOKEN }}
           GAJI_GATE_NOVEL_ID: ${{ secrets.GAJI_GATE_NOVEL_ID }}
           GAJI_CHAT_GATE_OWNER_EMAIL: ${{ secrets.GAJI_CHAT_GATE_OWNER_EMAIL }}
           GAJI_CHAT_GATE_OWNER_PASSWORD: ${{ secrets.GAJI_CHAT_GATE_OWNER_PASSWORD }}
@@ -223,8 +225,6 @@ jobs:
           for name in \
             FASTAPI_BASE_URL \
             SPRING_BASE_URL \
-            GAJI_GATE_ADMIN_EMAIL \
-            GAJI_GATE_ADMIN_PASSWORD \
             GAJI_GATE_NOVEL_ID \
             GAJI_CHAT_GATE_OWNER_EMAIL \
             GAJI_CHAT_GATE_OWNER_PASSWORD \
@@ -238,6 +238,11 @@ jobs:
 
           if [ -z "${GEMINI_API_KEY:-}" ] && [ -z "${GEMINI_API_KEYS:-}" ]; then
             missing+=("GEMINI_API_KEY or GEMINI_API_KEYS")
+          fi
+
+          if { [ -z "${RAG_READ_TOKEN:-}" ] || [ -z "${RAG_EVALUATE_TOKEN:-}" ]; } && \
+             { [ -z "${GAJI_GATE_ADMIN_EMAIL:-}" ] || [ -z "${GAJI_GATE_ADMIN_PASSWORD:-}" ]; }; then
+            missing+=("RAG_READ_TOKEN+RAG_EVALUATE_TOKEN or GAJI_GATE_ADMIN_EMAIL+GAJI_GATE_ADMIN_PASSWORD")
           fi
 
           if [ "${#missing[@]}" -gt 0 ]; then
@@ -320,6 +325,11 @@ jobs:
 
           print("## Provider-backed RAG/Chat Release Gates")
 
+          def contains_provider_exhaustion(value):
+              text = json.dumps(value, ensure_ascii=False).lower()
+              markers = ("resource_exhausted", "quota", "provider", "429")
+              return any(marker in text for marker in markers)
+
           rag_path = latest("rag_release_gate_*.json")
           if rag_path is None:
               print("- RAG: no artifact found")
@@ -328,8 +338,15 @@ jobs:
               full_gate = rag.get("full_gate") or {}
               response = full_gate.get("response") or {}
               gates = response.get("release_gates") or {}
+              quota_signal = bool(
+                  (rag.get("preflight") or {}).get("embedding_quota_error")
+                  or full_gate.get("embedding_quota_error")
+                  or contains_provider_exhaustion(rag if rag.get("status") != "complete" else {})
+              )
+              print(f"- RAG artifact: `{rag_path}`")
               print(f"- RAG status: `{rag.get('status')}`")
               print(f"- RAG gates passed: `{gates.get('passed')}`")
+              print(f"- RAG quota/provider exhaustion signal: `{quota_signal}`")
               for mode, payload in (response.get("modes") or {}).items():
                   metrics = payload.get("metrics") or {}
                   latency = payload.get("latency") or {}
@@ -346,15 +363,26 @@ jobs:
               chat = json.loads(chat_path.read_text())
               measured = chat.get("measured_results") or []
               gate = chat.get("gate") or {}
+              fallback_count = sum(1 for item in measured if item.get("fallback_used"))
+              provider_error_count = sum(
+                  1 for item in measured
+                  if item.get("status") != 200 or item.get("stream_error_events")
+              )
+              quota_signal = contains_provider_exhaustion(
+                  [item for item in measured if item.get("status") != 200 or item.get("stream_error_events")]
+              )
               failed = [
                   name for name, passed in (gate.get("assertions") or {}).items()
                   if not passed
               ]
+              print(f"- Chat artifact: `{chat_path}`")
               print(f"- Chat status: `{chat.get('status')}`")
               print(f"- Chat decision: `{gate.get('decision')}`")
               print(f"- Chat latency: {summary(item.get('elapsed_ms') for item in measured)}")
               print(f"- Chat first delta: {summary(item.get('stream_first_delta_ms') for item in measured)}")
-              print(f"- Chat fallback count: `{sum(1 for item in measured if item.get('fallback_used'))}`")
+              print(f"- Chat fallback count/rate: `{fallback_count}/{len(measured) or 1}`")
+              print(f"- Chat provider error count: `{provider_error_count}`")
+              print(f"- Chat quota/provider exhaustion signal: `{quota_signal}`")
               print(f"- Chat prompt marker leak count: `{sum(1 for item in measured if item.get('prompt_marker_revealed'))}`")
               print(f"- Chat citation text leak count: `{sum(1 for item in measured if item.get('citation_has_text'))}`")
               print(f"- Chat failed assertions: `{failed or 'none'}`")
