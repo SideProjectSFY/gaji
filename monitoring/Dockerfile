@@ -16,7 +16,7 @@ RUN apk add --no-cache \
     bash \
     && rm -rf /var/cache/apk/*
 
-# Python 패키지 설치 (ChromaDB 제외 - 모니터링은 HTTP API로 접근)
+# Python 패키지 설치
 RUN uv pip install --system --no-cache \
     psycopg2-binary \
     redis \

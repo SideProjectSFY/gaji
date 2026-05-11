@@ -9,12 +9,12 @@ Decision: PASS
 This run validates the provider-backed learner chat path after the SSE/streaming work:
 
 - Spring Boot chat endpoint: `/api/v1/conversations/{conversationId}/messages/chat-completion/stream`
-- FastAPI generation endpoint: `/v1/chat/completions/stream`
+- Spring Boot generation endpoint: `/api/v1/conversations/{id}/messages/chat-completion/stream`
 - Retrieval-grounded Gemini response generation
 - Citation metadata, RAG observability metadata, and source-text leak prevention
 - Conversation ownership guard for another authenticated user
 
-The test was run against the local Docker-backed E2E stack with PostgreSQL, Redis, ChromaDB, Elasticsearch, Spring Boot, FastAPI, and Gemini provider calls enabled.
+The test was run against the local Docker-backed E2E stack with PostgreSQL, Redis, pgvector, Elasticsearch, Spring Boot, Spring Boot, and Gemini provider calls enabled.
 
 ## Preflight Fix
 

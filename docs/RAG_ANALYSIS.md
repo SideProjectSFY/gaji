@@ -13,12 +13,12 @@
 
 ## 🆚 상세 비교 분석 (Markdown Rumble!)
 
-| 비교 항목 | **옵션 A: 커스텀 RAG (ChromaDB + Spring/FastAPI)** | **옵션 B: Gemini File Search (Google Managed)** |
+| 비교 항목 | **옵션 A: 커스텀 RAG (pgvector + Spring/Spring Boot)** | **옵션 B: Gemini File Search (Google Managed)** |
 | :--- | :--- | :--- |
 | **🛠️ 구축 난이도** | **Hard** 🥵<br>(청킹, 임베딩, DB 관리, 인덱싱 파이프라인 직접 구현) | **Easy Peasy** 😎<br>(파일 업로드 API 호출 끝) |
 | **💰 초기 인덱싱 비용** | **매우 저렴**<br>(`text-embedding-004`: ~$0.20 / 10M 토큰) | **약간 발생**<br>(Cache Storage: ~$1.50 / 10M 토큰, *1시간 무료*) |
-| **💸 월 고정 비용** | **높음** 💸<br>(프로덕션급 VectorDB 호스팅/관리 최소 **$50~$100/월** 예상)<br>*EC2/RDS 또는 SaaS 비용* | **거의 0원** 🆓<br>(Google AI Studio 10GB 저장 무료, 검색 무료)<br>*사용한 토큰만큼만 지불* |
-| **⚡ 레이턴시 (속도)** | **느림 (2 Hops)** 🐢<br>(App ➡ VectorDB ➡ App ➡ LLM)<br>네트워크 왕복 + DB 검색 시간 | **빠름 (1 Hop)** ⚡<br>(App ➡ LLM w/ Tools)<br>구글 내부 최적화 인프라 |
+| **💸 월 고정 비용** | **높음** 💸<br>(프로덕션급 pgvector 호스팅/관리 최소 **$50~$100/월** 예상)<br>*EC2/RDS 또는 SaaS 비용* | **거의 0원** 🆓<br>(Google AI Studio 10GB 저장 무료, 검색 무료)<br>*사용한 토큰만큼만 지불* |
+| **⚡ 레이턴시 (속도)** | **느림 (2 Hops)** 🐢<br>(App ➡ pgvector ➡ App ➡ LLM)<br>네트워크 왕복 + DB 검색 시간 | **빠름 (1 Hop)** ⚡<br>(App ➡ LLM w/ Tools)<br>구글 내부 최적화 인프라 |
 | **🧠 검색 품질 & 제어** | **높음 (High Control)**<br>정교한 청킹 전략, 하이브리드 검색(키워드+벡터) 가능 | **중간 (Automated)**<br>구글이 알아서 청킹/검색. 커스터마이징 제약 있음 |
 | **🔄 유지보수** | **지옥** 🔥<br>DB 백업, 스케일링, 인덱스 최적화, 버전 관리 | **평화** 🕊️<br>구글이 알아서 함 |
 
@@ -36,7 +36,7 @@
     *   검색(Retrieval) 자체도 무료입니다. 오직 LLM에 들어가는 토큰 값만 냅니다 (이건 옵션 A도 똑같이 냄).
 
 2.  **구현 속도 = 생명 (Time to Market)** 🚀
-    *   옵션 A: 청킹 알고리즘 짜고, 임베딩 돌리고, ChromaDB 도커 띄우고, 연결하고... 최소 1~2주 소요.
+    *   옵션 A: 청킹 알고리즘 짜고, 임베딩 돌리고, pgvector 도커 띄우고, 연결하고... 최소 1~2주 소요.
     *   옵션 B: 파일 업로드 API 한 방이면 끝. **오늘 저녁에 배포 가능.**
 
 3.  **인프라 관리 제로 (Zero Ops)** 😌

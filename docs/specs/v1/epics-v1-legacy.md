@@ -5,7 +5,7 @@ inputDocuments:
   - /Users/min-yeongjae/gaji/architecture.md
   - /Users/min-yeongjae/gaji/gajiBE/docs/DDD_PHASE1_MODULE_MAPPING.md
   - /Users/min-yeongjae/gaji/gajiBE/docs/DDD_SPRING_MODULITH_BLUEPRINT.md
-  - /Users/min-yeongjae/gaji/gajiFE-next/FRONTEND_RULES.md
+  - /Users/min-yeongjae/gaji/gajiFE/FRONTEND_RULES.md
 ---
 
 # gaji - Epic Breakdown
@@ -25,7 +25,7 @@ FR1: Refactor Spring Boot backend into DDD modular monolith bounded contexts (`i
 FR2: Organize each backend context into layered packages (`domain`, `application`, `infrastructure`, `interfaces`) with enforced dependency direction.
 FR3: Preserve business API flow as `Next.js FE -> Spring Boot`.
 FR4: Implement secure AI direct flow with effective runtime path `FE gateway -> AI` and Spring-issued short-lived AI access token.
-FR5: Implement AI token broker endpoint in backend (`POST /api/v1/ai-token`) with claim/scope issuance.
+FR5: Implement Spring auth boundary endpoint in backend (`POST /api/v1/ai/chat/completions`) with claim/scope issuance.
 FR6: Support dual AI client mode during migration: legacy (`FE -> BE -> AI`) and new direct mode.
 FR7: Migrate frontend from Vue 3 SPA to Next.js App Router incrementally by route and domain.
 FR8: Enforce frontend server-boundary data access: browser calls only `src/app/api/*`, route handlers orchestrate downstream calls.
@@ -44,7 +44,7 @@ NFR2: API compatibility must be maintained or explicitly versioned with migratio
 NFR3: Security for AI path must include short TTL tokens, signature/claim validation, scope enforcement, and ownership checks.
 NFR4: Sensitive credentials/tokens must remain on server boundary and never be exposed to browser or AI provider.
 NFR5: Reliability must include emergency kill switch and traffic rollback capability for both AI and frontend routes.
-NFR6: Observability must track latency (p95), error rates, retries, AI token usage/cost, and migration parity KPIs.
+NFR6: Observability must track latency (p95), error rates, retries, provider usage/cost, and migration parity KPIs.
 NFR7: Performance budgets must include frontend LCP and bundle constraints with monitoring during migration.
 NFR8: Architecture quality gates must fail CI on forbidden dependency violations.
 NFR9: Deployment quality requires staged canary progression (5% -> 20% -> 50% -> 100%) with hold periods.
@@ -69,7 +69,7 @@ FR1: Epic 2 - DDD bounded-context backend migration
 FR2: Epic 2 - Layered package and dependency enforcement
 FR3: Epic 3 - Business API continuity from Next.js
 FR4: Epic 4 - Secure direct AI flow
-FR5: Epic 4 - AI token broker capability
+FR5: Epic 4 - Spring auth boundary capability
 FR6: Epic 4 - Dual AI mode operation
 FR7: Epic 3 - Incremental Next.js migration
 FR8: Epic 3 - Frontend server-boundary access pattern
@@ -271,21 +271,21 @@ So that AI requests can be authorized without exposing core credentials.
 **Acceptance Criteria:**
 
 **Given** authenticated user context
-**When** FE requests `POST /api/v1/ai-token`
+**When** FE requests `POST /api/v1/ai/chat/completions`
 **Then** Spring returns a short-TTL signed token with audience and scope claims
 **And** issuance is audited with request and user correlation identifiers.
 
 ### Story 4.2: Next.js AI Route Handler Direct Invocation
 
 As a user sending AI prompts,
-I want the Next.js gateway to call AI directly using brokered token,
+I want the Next.js gateway to call AI directly using Spring auth token,
 So that responses are lower-latency and secure.
 
 **Acceptance Criteria:**
 
 **Given** AI direct mode is enabled by flag
 **When** FE submits AI chat/generation through route handlers
-**Then** route handler obtains brokered token and calls AI service directly
+**Then** route handler obtains Spring auth token and calls Spring RAG module directly
 **And** token validation failures return sanitized, user-safe errors.
 
 ### Story 4.3: Dual-Mode AI Client and Controlled Canary

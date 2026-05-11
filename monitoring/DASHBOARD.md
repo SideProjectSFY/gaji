@@ -1,6 +1,6 @@
 # 🎮 Gaji Monitoring System
 
-실시간 인프라 모니터링 시스템 - PostgreSQL, Redis, ChromaDB의 통합 모니터링 및 대시보드
+실시간 인프라 모니터링 시스템 - PostgreSQL, Redis, Elasticsearch의 통합 모니터링 및 대시보드
 
 ## 📊 주요 기능
 
@@ -26,11 +26,12 @@
 - **Connected Clients**: 연결된 클라이언트 수
 - **Total Keys**: 저장된 키 개수
 
-#### ChromaDB 🧠
+#### Elasticsearch 🔎
 
-- **Collections**: 벡터 컬렉션 수
+- **Cluster Status**: 클러스터 상태
+- **Indices**: 인덱스 수
 - **Total Documents**: 저장된 문서 수
-- **Heartbeat**: 응답 시간 (ms)
+- **Store**: 저장소 사용량
 
 ### 3. 자동 스케줄 모니터링 (Cron)
 
@@ -79,11 +80,12 @@ curl http://localhost:5001/api/metrics
     "total_keys": 456,
     "hit_rate": 95.2
   },
-  "chromadb": {
+  "elasticsearch": {
     "status": "healthy",
-    "total_collections": 2,
+    "cluster_status": "green",
+    "indices_count": 2,
     "total_documents": 150,
-    "heartbeat_ms": 15.2
+    "store_mb": 15.2
   }
 }
 ```
@@ -125,9 +127,8 @@ DB_PASSWORD=your_password
 REDIS_HOST=redis
 REDIS_PORT=6379
 
-# ChromaDB
-CHROMADB_HOST=chromadb
-CHROMADB_PORT=8000
+# Elasticsearch
+ELASTICSEARCH_URL=http://elasticsearch:9200
 
 # Dashboard
 DASHBOARD_PORT=5000
@@ -150,11 +151,11 @@ MATTERMOST_WEBHOOK_URL=https://your-mattermost.com/hooks/xxx
 - ⚠️ **Warning**: 70% ≤ Hit Rate < 90%
 - ❌ **Bad**: Hit Rate < 70%
 
-### ChromaDB
+### Elasticsearch
 
-- ✅ **Good**: Heartbeat < 100ms
-- ⚠️ **Warning**: 100ms ≤ Heartbeat < 500ms
-- ❌ **Bad**: Heartbeat ≥ 500ms
+- ✅ **Good**: Cluster status green/yellow
+- ⚠️ **Warning**: Cluster status yellow
+- ❌ **Bad**: Cluster status red
 
 ## 🛠️ 개발 가이드
 
@@ -265,7 +266,7 @@ _실시간 대시보드에서 모든 인프라 메트릭을 한눈에 확인할 
 ### v1.0.0 (2025-12-24)
 
 - 🎉 초기 릴리즈
-- 📈 PostgreSQL, Redis, ChromaDB 모니터링
+- 📈 PostgreSQL, Redis, Elasticsearch 모니터링
 - ⏰ Cron 기반 스케줄링
 - 💬 Mattermost 알림
 

@@ -26,7 +26,7 @@ Current system constraints:
 
 1. Spring backend architectural restructuring to DDD module boundaries.
 2. Next.js domain-based frontend baseline and route migration.
-3. AI token issuance and secure downstream call path.
+3. Spring auth validation and secure downstream call path.
 4. Documentation and structure alignment with BMAD v6 outputs.
 
 ### Out of Scope
@@ -104,7 +104,7 @@ Current system constraints:
 
 1. Spring security/token capability updates.
 2. Next.js route handler and domain module migration.
-3. AI service token verification compatibility.
+3. Spring RAG module token verification compatibility.
 4. PandaCSS codegen pipeline and Park UI component integration.
 
 ## 9. Risks and Mitigations

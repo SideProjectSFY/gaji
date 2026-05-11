@@ -334,18 +334,19 @@ class MattermostNotifier:
                 'text': rd_text
             })
         
-        # ChromaDB 섹션
-        if stats.get('chromadb'):
-            ch = stats['chromadb']
-            ch_text = (
-                f"**컬렉션 수:** {ch['collections_count']}개\n"
-                f"**총 문서:** {ch['total_documents']}개\n"
-                f"**예상 메모리:** {ch['estimated_memory_mb']} MB"
+        # Elasticsearch 섹션
+        if stats.get('elasticsearch'):
+            es = stats['elasticsearch']
+            es_text = (
+                f"**클러스터 상태:** {es['cluster_status']}\n"
+                f"**인덱스 수:** {es['indices_count']}개\n"
+                f"**총 문서:** {es['total_documents']}개\n"
+                f"**저장소:** {es['store_mb']} MB"
             )
             attachments.append({
-                'color': self.COLOR_SUCCESS if ch['estimated_memory_mb'] < 500 else self.COLOR_WARNING,
-                'title': '🎨 ChromaDB',
-                'text': ch_text
+                'color': self.COLOR_SUCCESS if es['cluster_status'] in ('green', 'yellow') else self.COLOR_ERROR,
+                'title': '🔎 Elasticsearch',
+                'text': es_text
             })
         
         return self.send_message(main_text, self.LEVEL_INFO, attachments)

@@ -4,26 +4,26 @@
 
 Verified the MVP-A retrieval path with real local services:
 
-- Spring Boot AI token broker
-- FastAPI `gajiAI/app`
-- ChromaDB
+- Spring Boot auth boundary
+- Spring Boot `gajiBE/app`
+- pgvector
 - Elasticsearch
 - PostgreSQL
 - Redis
-- Gemini embedding API configured through `gajiAI/.env`
+- Gemini embedding API configured through `.env`
 
 ## Environment
 
-- ChromaDB: healthy on Docker network, host port `8001`
+- pgvector: healthy on Docker network, host port `8001`
 - Elasticsearch: healthy on Docker network, host port `9200`
 - PostgreSQL: healthy on Docker network, host port `5432`
 - Redis: healthy on Docker network, host port `6379`
-- FastAPI: `gaji-ai-service`, internal `http://ai-service:8000`
+- Spring Boot: `backend service`
 - Spring Boot E2E instance: `gaji-backend-rag-e2e`, host port `18083`
 
 Compose contract fix:
 
-- `docker-compose.dev.yml` now passes `JWT_SECRET` into the Spring Boot backend so Spring-issued broker tokens use the same secret FastAPI verifies through `JWT_SECRET_KEY`.
+- `docker-compose.dev.yml` now passes `JWT_SECRET` into the Spring Boot backend so Spring-issued broker tokens use the same secret Spring Boot verifies through `JWT_SECRET_KEY`.
 
 ## Auth Results
 
@@ -34,7 +34,7 @@ Spring Boot broker endpoint issued a short-lived broker token with:
 - `audience=gaji-ai-direct`
 - `expiresInSeconds=180`
 
-FastAPI accepted that broker token for RAG search and evaluation endpoints.
+Spring Boot accepted that broker token for RAG search and evaluation endpoints.
 
 Negative authorization check:
 
@@ -74,7 +74,7 @@ Hybrid response included:
 Endpoint:
 
 ```text
-POST /v1/rag/search/evaluate
+POST RAG release evaluation
 ```
 
 Run configuration:
@@ -94,8 +94,8 @@ API response contract:
 
 Report artifacts:
 
-- Markdown: `gajiAI/reports/rag/rag_eval_1778124515.md`
-- JSON: `gajiAI/reports/rag/rag_eval_1778124515.json`
+- Markdown: `gajiBE/reports/rag/rag_eval_1778124515.md`
+- JSON: `gajiBE/reports/rag/rag_eval_1778124515.json`
 
 BM25 metrics from the E2E run:
 

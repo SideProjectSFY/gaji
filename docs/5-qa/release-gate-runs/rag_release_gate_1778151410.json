@@ -1,0 +1,269 @@
+{
+  "status": "complete",
+  "novel_id": "00000000-0000-0000-0000-000000001342",
+  "protocol": {
+    "modes": [
+      "bm25",
+      "vector",
+      "hybrid"
+    ],
+    "top_k": 10,
+    "warmup_queries": 10,
+    "min_latency_samples": 100,
+    "concurrency": 5
+  },
+  "preflight": {
+    "status": "pass",
+    "elapsed_seconds": 0.064,
+    "result_count": 1,
+    "timing_ms": {
+      "embedding_ms": 5.219611979555339,
+      "vector_search_ms": 11.4893380086869,
+      "bm25_search_ms": 0.0,
+      "fusion_ms": 0.04658498801290989,
+      "total_ms": 61.03816902032122
+    },
+    "embedding_cache": {
+      "query_cache_hit": true
+    },
+    "grounding_status": "grounded"
+  },
+  "full_gate": {
+    "status": "complete",
+    "response": {
+      "novel_id": "00000000-0000-0000-0000-000000001342",
+      "golden_query_count": 45,
+      "corpus_fingerprint": "00000000-0000-0000-0000-000000001342",
+      "config_fingerprint": "e6101975681c327e4796457a3b9021436e6c2dc790191c58e95803605a625704",
+      "latency_protocol": {
+        "warmup_query_count": 10,
+        "min_measured_request_count": 100,
+        "concurrency": 5,
+        "include_text": false
+      },
+      "embedding_prewarm": {
+        "required": true,
+        "cache_enabled": true,
+        "unique_query_count": 45,
+        "cache_hit_count": 45,
+        "cache_miss_count": 0,
+        "embedded_query_count": 0,
+        "cache_size": 56,
+        "cache_path": "/app/reports/rag/query_embedding_cache.jsonl",
+        "cache_stats": {
+          "hits": 46,
+          "misses": 0
+        },
+        "elapsed_ms": 0.2873000339604914
+      },
+      "modes": {
+        "bm25": {
+          "metrics": {
+            "Hit@5": 0.8,
+            "Hit@10": 0.9,
+            "Recall@5": 0.21793619424054206,
+            "Recall@10": 0.3441568244557375,
+            "MRR": 0.6609325396825397,
+            "nDCG@10": 0.3950181912176811,
+            "FalsePositive@5": 0.8,
+            "FalsePositive@10": 0.8,
+            "false_positive_basis": "negative_queries_required",
+            "query_count": 45,
+            "positive_query_count": 40,
+            "negative_query_count": 5,
+            "Hit@k": 0.9,
+            "Recall@k": 0.3441568244557375,
+            "FalsePositive@k": 0.8,
+            "bootstrap_sanity": {
+              "metric": "Hit@10",
+              "iterations": 1000,
+              "confidence": 0.9,
+              "mean": 0.9,
+              "ci_low": 0.825,
+              "ci_high": 0.975
+            }
+          },
+          "latency": {
+            "p50_ms": 4.611905984347686,
+            "p95_ms": 6.425603426760063
+          },
+          "embedding_cache": {
+            "observed": false
+          },
+          "embedding_latency": {
+            "observed": false
+          },
+          "candidate_pool": {
+            "observed": true,
+            "max_vector_requested": 0.0,
+            "max_bm25_requested": 50.0,
+            "avg_vector_returned": 0.0,
+            "avg_bm25_returned": 45.84137931034483,
+            "avg_fused_returned": 9.668965517241379,
+            "avg_vector_saturation": null,
+            "avg_bm25_saturation": 0.9168275862068965
+          },
+          "concurrency": 5,
+          "warmup_query_count": 10,
+          "latency_sample_count": 100,
+          "query_count": 45
+        },
+        "vector": {
+          "metrics": {
+            "Hit@5": 0.975,
+            "Hit@10": 1.0,
+            "Recall@5": 0.45490357770249074,
+            "Recall@10": 0.8466325522303783,
+            "MRR": 0.9098214285714286,
+            "nDCG@10": 0.8858387387838427,
+            "FalsePositive@5": 0.0,
+            "FalsePositive@10": 0.0,
+            "false_positive_basis": "negative_queries_required",
+            "query_count": 45,
+            "positive_query_count": 40,
+            "negative_query_count": 5,
+            "Hit@k": 1.0,
+            "Recall@k": 0.8466325522303783,
+            "FalsePositive@k": 0.0,
+            "bootstrap_sanity": {
+              "metric": "Hit@10",
+              "iterations": 1000,
+              "confidence": 0.9,
+              "mean": 1.0,
+              "ci_low": 1.0,
+              "ci_high": 1.0
+            }
+          },
+          "latency": {
+            "p50_ms": 17.075480485800654,
+            "p95_ms": 22.648224246222526
+          },
+          "embedding_cache": {
+            "observed": true,
+            "query_cache_hits": 130,
+            "query_cache_misses": 0,
+            "query_cache_hit_rate": 1.0
+          },
+          "embedding_latency": {
+            "observed": true,
+            "all": {
+              "p50_ms": 0.017000478692352772,
+              "p95_ms": 0.02970532805193215
+            },
+            "cache_hit": {
+              "p50_ms": 0.017000478692352772,
+              "p95_ms": 0.02970532805193215
+            },
+            "cache_miss": {
+              "p50_ms": 0.0,
+              "p95_ms": 0.0
+            }
+          },
+          "candidate_pool": {
+            "observed": true,
+            "max_vector_requested": 50.0,
+            "max_bm25_requested": 0.0,
+            "avg_vector_returned": 44.827586206896555,
+            "avg_bm25_returned": 0.0,
+            "avg_fused_returned": 8.96551724137931,
+            "avg_vector_saturation": 0.896551724137931,
+            "avg_bm25_saturation": null
+          },
+          "concurrency": 5,
+          "warmup_query_count": 10,
+          "latency_sample_count": 100,
+          "query_count": 45
+        },
+        "hybrid": {
+          "metrics": {
+            "Hit@5": 0.975,
+            "Hit@10": 1.0,
+            "Recall@5": 0.45490357770249074,
+            "Recall@10": 0.8466325522303783,
+            "MRR": 0.9098214285714286,
+            "nDCG@10": 0.8858387387838427,
+            "FalsePositive@5": 0.8,
+            "FalsePositive@10": 0.8,
+            "false_positive_basis": "negative_queries_required",
+            "query_count": 45,
+            "positive_query_count": 40,
+            "negative_query_count": 5,
+            "Hit@k": 1.0,
+            "Recall@k": 0.8466325522303783,
+            "FalsePositive@k": 0.8,
+            "bootstrap_sanity": {
+              "metric": "Hit@10",
+              "iterations": 1000,
+              "confidence": 0.9,
+              "mean": 1.0,
+              "ci_low": 1.0,
+              "ci_high": 1.0
+            }
+          },
+          "latency": {
+            "p50_ms": 13.722048985073343,
+            "p95_ms": 18.93619594629854
+          },
+          "embedding_cache": {
+            "observed": true,
+            "query_cache_hits": 142,
+            "query_cache_misses": 0,
+            "query_cache_hit_rate": 1.0
+          },
+          "embedding_latency": {
+            "observed": true,
+            "all": {
+              "p50_ms": 0.0177504844032228,
+              "p95_ms": 0.02739412884693592
+            },
+            "cache_hit": {
+              "p50_ms": 0.0177504844032228,
+              "p95_ms": 0.02739412884693592
+            },
+            "cache_miss": {
+              "p50_ms": 0.0,
+              "p95_ms": 0.0
+            }
+          },
+          "candidate_pool": {
+            "observed": true,
+            "max_vector_requested": 50.0,
+            "max_bm25_requested": 50.0,
+            "avg_vector_returned": 48.96551724137931,
+            "avg_bm25_returned": 45.84137931034483,
+            "avg_fused_returned": 9.793103448275861,
+            "avg_vector_saturation": 0.9793103448275862,
+            "avg_bm25_saturation": 0.9168275862068965
+          },
+          "concurrency": 5,
+          "warmup_query_count": 10,
+          "latency_sample_count": 100,
+          "query_count": 45
+        }
+      },
+      "release_gates": {
+        "quality_hit10_gate": true,
+        "quality_ndcg10_gate": true,
+        "negative_false_positive10_gate": false,
+        "latency_p95_ms_gate": true,
+        "hybrid_hit10_lift_vs_bm25": 0.09999999999999998,
+        "hybrid_hit10_lift_vs_vector": 0.0,
+        "hybrid_mrr_delta_vs_vector": 0.0,
+        "hybrid_ndcg10_delta_vs_vector": 0.0,
+        "bootstrap_sanity": {
+          "metric": "Hit@10",
+          "iterations": 1000,
+          "confidence": 0.9,
+          "mean": 1.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0
+        },
+        "hybrid_no_regression_vs_vector_gate": true,
+        "passed": false
+      },
+      "report_path": "reports/rag/rag_eval_1778151410.md",
+      "json_report_path": "reports/rag/rag_eval_1778151410.json",
+      "client_elapsed_seconds": 1.333
+    }
+  }
+}

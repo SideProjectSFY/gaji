@@ -86,10 +86,11 @@ def test_all_notifications():
     
     # 5. 일일 리포트 테스트
     print("\n5️⃣ 일일 리포트 테스트...")
-    stats['chromadb'] = {
-        'collections_count': 5,
+    stats['elasticsearch'] = {
+        'cluster_status': 'green',
+        'indices_count': 3,
         'total_documents': 10000,
-        'estimated_memory_mb': 58.6
+        'store_mb': 58.6
     }
     notifier.send_daily_report(stats)
     print("✅ 일일 리포트 전송 완료")

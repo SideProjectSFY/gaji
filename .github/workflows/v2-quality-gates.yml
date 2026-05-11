@@ -13,13 +13,13 @@ jobs:
         with:
           node-version: 20
       - name: Install frontend deps
-        run: npm --prefix gajiFE-next ci
+        run: npm --prefix gajiFE ci
       - name: Validate visual baseline config presence
-        run: test -f gajiFE-next/tests/visual/visual-baseline.config.json
+        run: test -f gajiFE/tests/visual/visual-baseline.config.json
       - name: Run lint
-        run: npm --prefix gajiFE-next run lint
+        run: npm --prefix gajiFE run lint
       - name: Run parity E2E suite
-        run: npm --prefix gajiFE-next run test:e2e:parity
+        run: npm --prefix gajiFE run test:e2e:parity
 
   docs-artifact-gate:
     runs-on: ubuntu-latest

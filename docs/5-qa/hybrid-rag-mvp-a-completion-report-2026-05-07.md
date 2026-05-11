@@ -2,7 +2,7 @@
 
 ## 요약
 
-MVP-A는 learner-facing chat에 RAG를 붙이기 전에 필요한 **검색 기반 RAG substrate**를 완성하고 검증한 단계다. `Pride and Prejudice`를 기준 소설로 삼아 ChromaDB vector search와 Elasticsearch BM25 search에 dual index했고, 인증된 검색/디버그/평가 API, passage manifest readiness persistence, 재현 가능한 release gate 리포트까지 구현했다.
+MVP-A는 learner-facing chat에 RAG를 붙이기 전에 필요한 **검색 기반 RAG substrate**를 완성하고 검증한 단계다. `Pride and Prejudice`를 기준 소설로 삼아 pgvector vector search와 Elasticsearch BM25 search에 dual index했고, 인증된 검색/디버그/평가 API, passage manifest readiness persistence, 재현 가능한 release gate 리포트까지 구현했다.
 
 최종 판정: **PASS**.
 
@@ -10,27 +10,27 @@ MVP-A를 통해 Gaji는 채팅 통합 전에 “소설 근거를 안정적으로
 
 ## 구현한 것
 
-### Canonical AI Service 전환
+### Canonical Spring RAG module 전환
 
-- local Compose의 AI service를 `gajiAI/app` FastAPI 애플리케이션으로 전환했다.
+- local Compose의 Spring RAG module를 `gajiBE/app` Spring Boot 애플리케이션으로 전환했다.
 - BM25 검색과 평가를 위해 Elasticsearch를 local development Compose에 추가했다.
-- passage embedding 저장소로 ChromaDB를 유지했다.
-- AI service 설정에 ChromaDB, Elasticsearch, Redis, Gemini embedding, AI broker JWT validation 값을 정리했다.
+- passage embedding 저장소로 pgvector를 유지했다.
+- Spring RAG module 설정에 pgvector, Elasticsearch, Redis, Gemini embedding, Spring auth JWT validation 값을 정리했다.
 
 ### Dual Retrieval Index
 
 - `Pride and Prejudice` (`source_novel_id=gutenberg:1342`)를 두 검색 저장소에 색인했다.
-  - ChromaDB collection: `novel_passages`
+  - pgvector collection: `novel_passages`
   - Elasticsearch alias: `gaji_novel_passages_current`
-- ChromaDB와 Elasticsearch에서 동일한 canonical `passage_id`를 사용한다.
+- pgvector와 Elasticsearch에서 동일한 canonical `passage_id`를 사용한다.
 - passage ID는 novel/chunker/chapter/chunk/hash 구성으로 manifest-stable하게 생성된다.
 - passage manifest metadata와 readiness 상태는 Spring internal API를 통해 PostgreSQL에 저장된다.
 
 ### RAG API
 
-- `POST /v1/rag/index/novels/{novel_id}`: passage manifest 생성, embedding 생성, ChromaDB upsert, Elasticsearch bulk index, reconciliation 수행.
-- `POST /v1/rag/search/passages`: `bm25`, `vector`, `hybrid` 검색 지원.
-- `POST /v1/rag/search/evaluate`: release gate evaluation 실행 및 Markdown/JSON 리포트 생성.
+- `POST RAG ingestion`: passage manifest 생성, embedding 생성, pgvector upsert, Elasticsearch bulk index, reconciliation 수행.
+- `POST Spring pgvector/Elasticsearch search`: `bm25`, `vector`, `hybrid` 검색 지원.
+- `POST RAG release evaluation`: release gate evaluation 실행 및 Markdown/JSON 리포트 생성.
 - 검색 응답에는 final rank, vector/BM25 rank, RRF score, component scores, timing, fallback status, grounding status, manifest metadata, config metadata가 포함된다.
 
 ### 인증과 노출 제어
@@ -61,8 +61,8 @@ MVP-A를 통해 Gaji는 채팅 통합 전에 “소설 근거를 안정적으로
 
 최신 산출물:
 
-- Markdown: `gajiAI/reports/rag/rag_eval_1778131315.md`
-- JSON: `gajiAI/reports/rag/rag_eval_1778131315.json`
+- Markdown: `gajiBE/reports/rag/rag_eval_1778131315.md`
+- JSON: `gajiBE/reports/rag/rag_eval_1778131315.json`
 - QA gate log: `docs/5-qa/hybrid-rag-mvp-a-release-gate-rerun-2026-05-07.md`
 
 | Mode | Hit@10 | MRR | nDCG@10 | FalsePositive@10 | p95 latency |
@@ -90,7 +90,7 @@ MVP-A를 통해 Gaji는 채팅 통합 전에 “소설 근거를 안정적으로
 
 다음과 같이 설명할 수 있다:
 
-> MVP-A에서는 Gaji의 Hybrid RAG 검색 기반을 구현하고 검증했다. AI service는 canonical passage를 vector store와 lexical store에 dual index하고, BM25/vector/hybrid 검색을 제공하며, RAG 권한 경계와 passage manifest readiness를 관리한다. 또한 golden query 기반 release gate를 통해 hybrid retrieval이 BM25보다 우수하고 vector 대비 ranking regression이 없음을 수치로 확인했다.
+> MVP-A에서는 Gaji의 Hybrid RAG 검색 기반을 구현하고 검증했다. Spring RAG module는 canonical passage를 vector store와 lexical store에 dual index하고, BM25/vector/hybrid 검색을 제공하며, RAG 권한 경계와 passage manifest readiness를 관리한다. 또한 golden query 기반 release gate를 통해 hybrid retrieval이 BM25보다 우수하고 vector 대비 ranking regression이 없음을 수치로 확인했다.
 
 아직 MVP-A만으로 설명하면 안 되는 것:
 
@@ -102,9 +102,9 @@ MVP-A를 통해 Gaji는 채팅 통합 전에 “소설 근거를 안정적으로
 
 ## MVP-B 인계 사항
 
-MVP-B는 MVP-A substrate를 `/v1/chat/completions`에 연결한다.
+MVP-B는 MVP-A substrate를 `/api/v1/ai/chat/completions`에 연결한다.
 
-- 대상 endpoint: `/v1/chat/completions`
+- 대상 endpoint: `/api/v1/ai/chat/completions`
 - 기본 retrieval mode: `hybrid`
 - ranking policy: `vector_primary_rrf_fallback`
 - chat token: 기존 `ai:chat:complete`
@@ -114,7 +114,7 @@ MVP-B는 MVP-A substrate를 `/v1/chat/completions`에 연결한다.
 
 ## 현재 MVP-B 진행 상태
 
-MVP-B의 learner chat integration 핵심 경로까지 진행했다. `/v1/chat/completions`는 이제 RAG context attachment 후 실제 Gemini direct generation service를 호출하고, Spring backend gateway와 learner conversation message flow에서도 동일 chat completion flow를 사용할 수 있다.
+MVP-B의 learner chat integration 핵심 경로까지 진행했다. `/api/v1/ai/chat/completions`는 이제 RAG context attachment 후 실제 Gemini direct generation service를 호출하고, Spring backend gateway와 learner conversation message flow에서도 동일 chat completion flow를 사용할 수 있다.
 
 - 요청에서 `rag.enabled=true`와 `rag.novel_id`가 오면 내부적으로 hybrid retrieval을 실행한다.
 - retrieval 결과의 passage text는 Gemini prompt context 구성에만 사용한다.
@@ -131,14 +131,14 @@ MVP-B의 learner chat integration 핵심 경로까지 진행했다. `/v1/chat/co
 - generation prompt와 retrieval query를 분리했다.
   - retrieval query는 사용자의 원문 질의를 짧게 정리한 `rag.query`로 전달한다.
   - generation prompt에는 conversation id, novel metadata, scenario what-if/change summary, character persona/speaking style, recent history, current user message를 포함한다.
-  - FastAPI 응답 metadata에는 `query_source=rag.query` 또는 `prompt`가 기록된다.
+  - Spring Boot 응답 metadata에는 `query_source=rag.query` 또는 `prompt`가 기록된다.
 - 테스트에서는 Gemini 호출을 fake service로 격리했고, Docker smoke에서는 실제 provider 응답을 확인했다.
 - Spring `POST /api/v1/ai/chat/completions` 프록시를 추가했다.
-  - Spring access token을 검증한 뒤 internal AI broker token을 발급한다.
+  - Spring access token을 검증한 뒤 internal Spring auth token을 발급한다.
   - RAG 요청이면 `rag.novelId`를 확인하고 broker token의 `novel_ids` claim에 포함한다.
   - generic direct RAG proxy는 conversation ownership context가 없으므로 `ADMIN`/`DEVELOPER`만 허용한다.
-  - FastAPI `/v1/chat/completions`로 request/response를 전달한다.
-  - null RAG optional field는 직렬화하지 않아 FastAPI strict schema validation과 맞춘다.
+  - Spring Boot `/api/v1/ai/chat/completions`로 request/response를 전달한다.
+  - null RAG optional field는 직렬화하지 않아 Spring Boot strict schema validation과 맞춘다.
 - Spring `POST /api/v1/conversations/{conversationId}/messages/chat-completion`을 추가했다.
   - user message 저장과 assistant message 저장은 짧은 DB transaction으로 분리한다.
   - canonical AI chat completion remote call은 DB transaction 밖에서 실행한다.
@@ -167,9 +167,9 @@ MVP-B의 learner chat integration 핵심 경로까지 진행했다. `/v1/chat/co
 - `pnpm test:run src/components/chat/__tests__/ChatMessage.spec.ts src/stores/__tests__/conversation-fork.spec.ts`: `12 passed`
 - `pnpm build`: passed
 - `pnpm exec vue-tsc --noEmit`: failed on pre-existing project-wide type errors unrelated to this change.
-- Docker health: FastAPI, ChromaDB, Elasticsearch, PostgreSQL, Redis 모두 healthy.
+- Docker health: Spring Boot, pgvector, Elasticsearch, PostgreSQL, Redis 모두 healthy.
 - Docker E2E smoke:
-  - endpoint: `POST /v1/chat/completions`
+  - endpoint: `POST /api/v1/ai/chat/completions`
   - request: `rag.enabled=true`, `mode=hybrid`
   - result: `200`
   - provider: `gemini`
@@ -179,7 +179,7 @@ MVP-B의 learner chat integration 핵심 경로까지 진행했다. `/v1/chat/co
   - citation payload does not include passage text
 - Spring gateway E2E smoke:
   - endpoint: `POST /api/v1/ai/chat/completions`
-  - flow: Spring auth token -> AI broker token -> FastAPI chat completion -> hybrid RAG -> Gemini
+  - flow: Spring auth token -> Spring auth token -> Spring Boot chat completion -> hybrid RAG -> Gemini
   - result: `200`
   - provider: `gemini`
   - `grounding_status=grounded`
@@ -193,7 +193,7 @@ MVP-B의 learner chat integration 핵심 경로까지 진행했다. `/v1/chat/co
   - non-owner conversation RAG: `403`
 - Learner conversation E2E smoke:
   - endpoint: `POST /api/v1/conversations/{conversationId}/messages/chat-completion`
-  - flow: Spring auth token -> conversation message save -> AI broker token -> FastAPI chat completion -> hybrid RAG -> Gemini -> assistant message save
+  - flow: Spring auth token -> conversation message save -> Spring auth token -> Spring Boot chat completion -> hybrid RAG -> Gemini -> assistant message save
   - result: `200`
   - create conversation pre-step: `201`
   - provider: `gemini`

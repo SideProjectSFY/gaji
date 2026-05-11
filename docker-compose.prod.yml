@@ -4,16 +4,16 @@ networks:
 
 volumes:
   postgres-data:
-  chromadb-data:
+  elasticsearch-data:
   redis-data:
   caddy_data:
   caddy_config:
   caddy_logs:
 
 services:
-  # PostgreSQL - Metadata storage only
+  # PostgreSQL - Metadata plus pgvector RAG passage embeddings
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: gaji-postgres
     restart: always
     environment:
@@ -72,23 +72,18 @@ services:
       timeout: 5s
       retries: 5
 
-  # ChromaDB
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: gaji-chromadb
+  # Elasticsearch - BM25 passage index for RAG retrieval
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.16.1
+    container_name: gaji-elasticsearch
     restart: always
     environment:
-      - CHROMA_SERVER_HOST=0.0.0.0
-      - CHROMA_SERVER_HTTP_PORT=8000
-      - IS_PERSISTENT=TRUE
-      - ANONYMIZED_TELEMETRY=FALSE
-      - CHROMA_TELEMETRY_ENABLED=false
-      - CHROMA_SERVER_METRICS=false
-      - CHROMA_LOG_LEVEL=WARN
-      - CHROMA_LOG_PATH=/logs
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
     volumes:
-      - chromadb-data:/chroma/chroma
-      - ./logs/chroma:/logs
+      - elasticsearch-data:/usr/share/elasticsearch/data
     # No ports exposed to host in prod
     networks:
       - gaji-network
@@ -101,13 +96,17 @@ services:
           memory: 1024M
           cpus: "0.25"
     healthcheck:
-      test: ["CMD-SHELL", "grep -q ':1F40' /proc/net/tcp || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s >/dev/null || exit 1",
+        ]
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
 
-  # Spring Boot - API Gateway
+  # Spring Boot - API + AI/RAG orchestration
   backend:
     build:
       context: ./gajiBE
@@ -121,12 +120,19 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-gaji_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-gaji_user}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      RAG_ELASTICSEARCH_ENABLED: ${RAG_ELASTICSEARCH_ENABLED:-true}
+      RAG_ELASTICSEARCH_INDEX: ${RAG_ELASTICSEARCH_INDEX:-gaji_novel_passages_v1}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
     expose:
       - "8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     networks:
       - gaji-network
@@ -144,46 +150,6 @@ services:
         [
           "CMD-SHELL",
           "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  # FastAPI - AI service
-  ai-service:
-    build:
-      context: ./gajiAI/rag-chatbot_test
-      dockerfile: Dockerfile.prod
-    container_name: gaji-ai-service
-    restart: always
-    env_file:
-      - .env.prod
-    expose:
-      - "8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      chromadb:
-        condition: service_healthy
-    networks:
-      - gaji-network
-    # No volume mounts for code
-    deploy:
-      resources:
-        limits:
-          memory: 640M
-          cpus: "0.75"
-        reservations:
-          memory: 512M
-          cpus: "0.5"
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/health'')"',
         ]
       interval: 30s
       timeout: 10s
@@ -210,7 +176,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      chromadb:
+      elasticsearch:
         condition: service_healthy
     networks:
       - gaji-network

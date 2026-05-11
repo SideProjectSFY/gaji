@@ -1,0 +1,991 @@
+{
+  "generated_at": "20260511T015153Z",
+  "postgres": {
+    "dsn": "postgresql://localhost/postgres",
+    "schema": "gaji_perf_es",
+    "fixture": {
+      "users": 1000,
+      "conversations": 5000,
+      "messages": 1025000
+    },
+    "fixture_profile": [
+      {
+        "conversation_count": 50,
+        "messages_per_conversation": 10000,
+        "owner": "benchmark target user"
+      },
+      {
+        "conversation_count": 950,
+        "messages_per_conversation": 300,
+        "owner": "other users"
+      },
+      {
+        "conversation_count": 4000,
+        "messages_per_conversation": 60,
+        "owner": "other users"
+      }
+    ]
+  },
+  "elasticsearch": {
+    "url": "http://localhost:9200",
+    "conversation_index": "gaji_perf_conversation_messages_v1",
+    "indexing": {
+      "status": "reused",
+      "document_count": 1025000,
+      "index_size_bytes": 104097471
+    }
+  },
+  "measurement": {
+    "warmups": 5,
+    "repeats": 30,
+    "result_limit": 20,
+    "lookup_size": 20,
+    "search_cases": [
+      {
+        "query": "marriage",
+        "kind": "positive",
+        "intent": "common body keyword"
+      },
+      {
+        "query": "Darcy",
+        "kind": "positive",
+        "intent": "character keyword"
+      },
+      {
+        "query": "Lydia elopement",
+        "kind": "positive",
+        "intent": "phrase-style scene query"
+      },
+      {
+        "query": "Benchmark conversation 1",
+        "kind": "positive",
+        "intent": "title query"
+      },
+      {
+        "query": "no-result-probe",
+        "kind": "negative",
+        "intent": "negative query"
+      }
+    ],
+    "cache_state": "Warm-cache latency after warmup runs; cold-cache latency is not measured by this script."
+  },
+  "benchmarks": {
+    "indexing_stability": {
+      "before_individual_index": {
+        "document_count": 2000,
+        "elapsed_ms": 11027.047,
+        "docs_per_second": 181.37,
+        "per_doc_latency": {
+          "avg_ms": 5.498,
+          "p50_ms": 4.675,
+          "p95_ms": 8.586,
+          "p99_ms": 12.755,
+          "min_ms": 1.65,
+          "max_ms": 119.536
+        }
+      },
+      "after_bulk_backfill": {
+        "document_count": 2000,
+        "success": 2000,
+        "failures": 0,
+        "elapsed_ms": 68.947,
+        "docs_per_second": 29007.6
+      },
+      "comparison": {
+        "total_indexing_speedup": 159.935,
+        "docs_per_second_delta": 28826.23
+      },
+      "after_title_update_by_query": {
+        "latency": {
+          "avg_ms": 14.179,
+          "p50_ms": 13.166,
+          "p95_ms": 19.537,
+          "p99_ms": 19.537,
+          "min_ms": 12.891,
+          "max_ms": 19.537
+        },
+        "latency_samples_ms": [
+          15.062,
+          13.085,
+          14.642,
+          13.648,
+          13.611,
+          13.166,
+          13.14,
+          13.003,
+          12.891,
+          19.537
+        ],
+        "last_result": {
+          "updated": 200,
+          "version_conflicts": 0
+        }
+      },
+      "after_conversation_delete_by_query": {
+        "latency": {
+          "avg_ms": 11.184,
+          "p50_ms": 11.184,
+          "p95_ms": 11.184,
+          "p99_ms": 11.184,
+          "min_ms": 11.184,
+          "max_ms": 11.184
+        },
+        "last_result": {
+          "deleted": 200,
+          "version_conflicts": 0
+        }
+      },
+      "retry_queue": {
+        "implemented_in_spring": true,
+        "default_max_size": 1000,
+        "note": "Failed async indexing operations are queued and retried opportunistically on subsequent index dispatches."
+      }
+    },
+    "conversation_search": {
+      "before_postgres_optimized": {
+        "queries": {
+          "marriage": {
+            "latency": {
+              "avg_ms": 12.776,
+              "p50_ms": 12.207,
+              "p95_ms": 16.545,
+              "p99_ms": 17.288,
+              "min_ms": 11.681,
+              "max_ms": 17.288
+            },
+            "latency_samples_ms": [
+              12.29,
+              11.689,
+              11.952,
+              12.817,
+              12.516,
+              16.545,
+              14.672,
+              12.103,
+              11.931,
+              12.175,
+              13.406,
+              12.207,
+              12.052,
+              12.143,
+              13.682,
+              17.288,
+              13.379,
+              12.611,
+              12.476,
+              11.787,
+              11.848,
+              11.711,
+              12.079,
+              13.111,
+              12.35,
+              12.17,
+              11.681,
+              13.646,
+              12.959,
+              12.006
+            ],
+            "last_result": {
+              "result_count": 20,
+              "message_hit_count": 1760,
+              "recent_message_count": 60
+            }
+          },
+          "Darcy": {
+            "latency": {
+              "avg_ms": 83.397,
+              "p50_ms": 82.561,
+              "p95_ms": 91.31,
+              "p99_ms": 91.956,
+              "min_ms": 78.41,
+              "max_ms": 91.956
+            },
+            "latency_samples_ms": [
+              86.034,
+              82.951,
+              79.817,
+              81.16,
+              89.372,
+              84.126,
+              82.207,
+              85.464,
+              84.085,
+              81.685,
+              85.144,
+              82.115,
+              82.697,
+              82.561,
+              84.012,
+              88.795,
+              91.956,
+              80.475,
+              78.764,
+              79.273,
+              79.148,
+              84.262,
+              78.41,
+              81.406,
+              79.379,
+              82.386,
+              79.112,
+              84.156,
+              91.31,
+              89.64
+            ],
+            "last_result": {
+              "result_count": 20,
+              "message_hit_count": 11660,
+              "recent_message_count": 60
+            }
+          },
+          "Lydia elopement": {
+            "latency": {
+              "avg_ms": 1.465,
+              "p50_ms": 1.447,
+              "p95_ms": 1.714,
+              "p99_ms": 1.718,
+              "min_ms": 1.206,
+              "max_ms": 1.718
+            },
+            "latency_samples_ms": [
+              1.524,
+              1.386,
+              1.5,
+              1.539,
+              1.585,
+              1.524,
+              1.528,
+              1.605,
+              1.319,
+              1.431,
+              1.627,
+              1.572,
+              1.492,
+              1.488,
+              1.309,
+              1.427,
+              1.403,
+              1.321,
+              1.318,
+              1.437,
+              1.485,
+              1.718,
+              1.714,
+              1.447,
+              1.442,
+              1.348,
+              1.437,
+              1.303,
+              1.206,
+              1.511
+            ],
+            "last_result": {
+              "result_count": 20,
+              "message_hit_count": 200,
+              "recent_message_count": 60
+            }
+          },
+          "Benchmark conversation 1": {
+            "latency": {
+              "avg_ms": 0.394,
+              "p50_ms": 0.392,
+              "p95_ms": 0.454,
+              "p99_ms": 0.485,
+              "min_ms": 0.342,
+              "max_ms": 0.485
+            },
+            "latency_samples_ms": [
+              0.431,
+              0.405,
+              0.393,
+              0.421,
+              0.424,
+              0.429,
+              0.399,
+              0.392,
+              0.392,
+              0.387,
+              0.387,
+              0.388,
+              0.392,
+              0.395,
+              0.41,
+              0.385,
+              0.43,
+              0.454,
+              0.366,
+              0.384,
+              0.362,
+              0.378,
+              0.485,
+              0.365,
+              0.342,
+              0.347,
+              0.344,
+              0.348,
+              0.352,
+              0.426
+            ],
+            "last_result": {
+              "result_count": 11,
+              "message_hit_count": 0,
+              "recent_message_count": 33
+            }
+          },
+          "no-result-probe": {
+            "latency": {
+              "avg_ms": 0.161,
+              "p50_ms": 0.155,
+              "p95_ms": 0.194,
+              "p99_ms": 0.246,
+              "min_ms": 0.143,
+              "max_ms": 0.246
+            },
+            "latency_samples_ms": [
+              0.163,
+              0.155,
+              0.154,
+              0.148,
+              0.151,
+              0.167,
+              0.163,
+              0.155,
+              0.143,
+              0.153,
+              0.152,
+              0.146,
+              0.155,
+              0.149,
+              0.143,
+              0.157,
+              0.153,
+              0.246,
+              0.163,
+              0.149,
+              0.153,
+              0.175,
+              0.171,
+              0.172,
+              0.156,
+              0.171,
+              0.194,
+              0.166,
+              0.16,
+              0.155
+            ],
+            "last_result": {
+              "result_count": 0,
+              "message_hit_count": 0,
+              "recent_message_count": 0
+            }
+          }
+        },
+        "aggregate_latency": {
+          "avg_ms": 19.639,
+          "p50_ms": 1.447,
+          "p95_ms": 85.144,
+          "p99_ms": 91.31,
+          "min_ms": 0.143,
+          "max_ms": 91.956
+        }
+      },
+      "after_elasticsearch": {
+        "queries": {
+          "marriage": {
+            "latency": {
+              "avg_ms": 4.556,
+              "p50_ms": 4.343,
+              "p95_ms": 5.112,
+              "p99_ms": 10.156,
+              "min_ms": 3.747,
+              "max_ms": 10.156
+            },
+            "latency_samples_ms": [
+              5.112,
+              4.416,
+              4.819,
+              4.442,
+              4.691,
+              4.002,
+              4.622,
+              4.246,
+              4.409,
+              3.79,
+              3.95,
+              4.139,
+              4.112,
+              4.254,
+              4.116,
+              4.052,
+              4.599,
+              4.07,
+              3.892,
+              4.191,
+              4.343,
+              3.994,
+              3.747,
+              4.758,
+              4.414,
+              4.771,
+              4.739,
+              10.156,
+              4.928,
+              4.898
+            ],
+            "last_result": {
+              "result_count": 20,
+              "message_hit_count": 1760,
+              "recent_message_count": 20
+            }
+          },
+          "Darcy": {
+            "latency": {
+              "avg_ms": 9.646,
+              "p50_ms": 9.483,
+              "p95_ms": 10.151,
+              "p99_ms": 15.061,
+              "min_ms": 8.86,
+              "max_ms": 15.061
+            },
+            "latency_samples_ms": [
+              9.888,
+              9.997,
+              9.919,
+              9.53,
+              8.864,
+              9.483,
+              10.017,
+              9.53,
+              9.616,
+              9.431,
+              10.151,
+              9.106,
+              8.936,
+              9.271,
+              8.86,
+              9.245,
+              9.711,
+              9.219,
+              9.156,
+              9.512,
+              9.184,
+              15.061,
+              9.827,
+              9.573,
+              9.089,
+              9.332,
+              9.212,
+              9.917,
+              9.561,
+              9.182
+            ],
+            "last_result": {
+              "result_count": 20,
+              "message_hit_count": 11660,
+              "recent_message_count": 20
+            }
+          },
+          "Lydia elopement": {
+            "latency": {
+              "avg_ms": 3.977,
+              "p50_ms": 3.09,
+              "p95_ms": 12.959,
+              "p99_ms": 15.458,
+              "min_ms": 2.667,
+              "max_ms": 15.458
+            },
+            "latency_samples_ms": [
+              3.559,
+              3.513,
+              2.807,
+              2.822,
+              3.721,
+              3.375,
+              3.507,
+              3.562,
+              2.981,
+              2.786,
+              2.949,
+              3.542,
+              2.988,
+              2.849,
+              3.047,
+              2.667,
+              2.691,
+              2.832,
+              2.699,
+              12.959,
+              4.051,
+              3.816,
+              15.458,
+              4.361,
+              3.958,
+              3.788,
+              2.972,
+              2.878,
+              3.094,
+              3.09
+            ],
+            "last_result": {
+              "result_count": 20,
+              "message_hit_count": 200,
+              "recent_message_count": 20
+            }
+          },
+          "Benchmark conversation 1": {
+            "latency": {
+              "avg_ms": 1.465,
+              "p50_ms": 1.444,
+              "p95_ms": 1.723,
+              "p99_ms": 1.979,
+              "min_ms": 1.194,
+              "max_ms": 1.979
+            },
+            "latency_samples_ms": [
+              1.402,
+              1.483,
+              1.368,
+              1.345,
+              1.381,
+              1.194,
+              1.449,
+              1.286,
+              1.723,
+              1.979,
+              1.69,
+              1.519,
+              1.458,
+              1.444,
+              1.505,
+              1.507,
+              1.678,
+              1.478,
+              1.507,
+              1.595,
+              1.34,
+              1.281,
+              1.254,
+              1.336,
+              1.637,
+              1.504,
+              1.419,
+              1.435,
+              1.432,
+              1.33
+            ],
+            "last_result": {
+              "result_count": 1,
+              "message_hit_count": 10000,
+              "recent_message_count": 1
+            }
+          },
+          "no-result-probe": {
+            "latency": {
+              "avg_ms": 0.53,
+              "p50_ms": 0.526,
+              "p95_ms": 0.612,
+              "p99_ms": 0.614,
+              "min_ms": 0.423,
+              "max_ms": 0.614
+            },
+            "latency_samples_ms": [
+              0.556,
+              0.548,
+              0.556,
+              0.521,
+              0.547,
+              0.52,
+              0.52,
+              0.506,
+              0.557,
+              0.526,
+              0.571,
+              0.541,
+              0.495,
+              0.466,
+              0.423,
+              0.564,
+              0.503,
+              0.46,
+              0.498,
+              0.475,
+              0.474,
+              0.614,
+              0.564,
+              0.555,
+              0.505,
+              0.502,
+              0.548,
+              0.581,
+              0.612,
+              0.583
+            ],
+            "last_result": {
+              "result_count": 0,
+              "message_hit_count": 0,
+              "recent_message_count": 0
+            }
+          }
+        },
+        "aggregate_latency": {
+          "avg_ms": 4.035,
+          "p50_ms": 3.09,
+          "p95_ms": 9.919,
+          "p99_ms": 15.061,
+          "min_ms": 0.423,
+          "max_ms": 15.458
+        }
+      },
+      "quality_smoke": {
+        "cases": [
+          {
+            "query": "marriage",
+            "intent": "common body keyword",
+            "kind": "positive",
+            "result_count": 20,
+            "duplicate_conversations": 0,
+            "scope_violations": 0,
+            "highlight_coverage": 1.0
+          },
+          {
+            "query": "Darcy",
+            "intent": "character keyword",
+            "kind": "positive",
+            "result_count": 20,
+            "duplicate_conversations": 0,
+            "scope_violations": 0,
+            "highlight_coverage": 1.0
+          },
+          {
+            "query": "Lydia elopement",
+            "intent": "phrase-style scene query",
+            "kind": "positive",
+            "result_count": 20,
+            "duplicate_conversations": 0,
+            "scope_violations": 0,
+            "highlight_coverage": 1.0
+          },
+          {
+            "query": "Benchmark conversation 1",
+            "intent": "title query",
+            "kind": "positive",
+            "result_count": 1,
+            "duplicate_conversations": 0,
+            "scope_violations": 0,
+            "highlight_coverage": 1.0
+          },
+          {
+            "query": "no-result-probe",
+            "intent": "negative query",
+            "kind": "negative",
+            "result_count": 0,
+            "duplicate_conversations": 0,
+            "scope_violations": 0,
+            "highlight_coverage": null
+          }
+        ],
+        "positive_hit_rate": 1.0,
+        "negative_rejection_rate": 1.0,
+        "duplicate_conversation_rate": 0.0,
+        "scope_violation_count": 0,
+        "highlight_coverage": 1.0,
+        "note": "Synthetic smoke check only; this is not a production relevance evaluation."
+      },
+      "comparison": {
+        "p95_delta_ms": -75.225,
+        "p95_speedup": 8.584,
+        "avg_delta_ms": -15.604,
+        "avg_speedup": 4.867
+      }
+    },
+    "ood_term_coverage": {
+      "before_count_loop": {
+        "latency": {
+          "avg_ms": 5.995,
+          "p50_ms": 5.45,
+          "p95_ms": 8.813,
+          "p99_ms": 9.628,
+          "min_ms": 4.603,
+          "max_ms": 9.628
+        },
+        "latency_samples_ms": [
+          5.053,
+          5.86,
+          5.337,
+          5.761,
+          4.929,
+          5.363,
+          5.304,
+          4.953,
+          5.129,
+          5.085,
+          5.144,
+          6.21,
+          4.603,
+          5.05,
+          5.45,
+          5.112,
+          4.822,
+          6.037,
+          4.886,
+          6.377,
+          6.948,
+          6.989,
+          5.452,
+          5.594,
+          9.628,
+          7.689,
+          7.12,
+          8.423,
+          8.813,
+          6.719
+        ],
+        "last_result": {
+          "term_count": 12,
+          "covered_terms": 6
+        }
+      },
+      "after_msearch": {
+        "latency": {
+          "avg_ms": 1.219,
+          "p50_ms": 1.147,
+          "p95_ms": 1.96,
+          "p99_ms": 1.979,
+          "min_ms": 0.938,
+          "max_ms": 1.979
+        },
+        "latency_samples_ms": [
+          1.473,
+          1.96,
+          1.979,
+          1.237,
+          1.037,
+          1.053,
+          0.938,
+          0.986,
+          1.042,
+          1.379,
+          1.268,
+          1.273,
+          1.19,
+          1.023,
+          0.971,
+          1.353,
+          1.092,
+          1.083,
+          1.172,
+          1.234,
+          1.147,
+          1.086,
+          1.033,
+          1.074,
+          1.507,
+          1.347,
+          1.275,
+          1.213,
+          1.08,
+          1.059
+        ],
+        "last_result": {
+          "term_count": 12,
+          "covered_terms": 6
+        }
+      },
+      "comparison": {
+        "p95_delta_ms": -6.853,
+        "p95_speedup": 4.496,
+        "avg_delta_ms": -4.776,
+        "avg_speedup": 4.918
+      }
+    },
+    "source_lookup": {
+      "before_individual_get": {
+        "latency": {
+          "avg_ms": 12.461,
+          "p50_ms": 11.737,
+          "p95_ms": 17.351,
+          "p99_ms": 20.468,
+          "min_ms": 11.149,
+          "max_ms": 20.468
+        },
+        "latency_samples_ms": [
+          12.507,
+          11.753,
+          12.409,
+          11.73,
+          12.188,
+          11.685,
+          11.735,
+          11.231,
+          11.149,
+          13.248,
+          11.848,
+          11.456,
+          17.351,
+          20.468,
+          11.635,
+          11.479,
+          11.331,
+          11.597,
+          11.677,
+          11.737,
+          11.537,
+          11.323,
+          11.387,
+          13.952,
+          12.056,
+          12.56,
+          13.055,
+          12.325,
+          13.14,
+          12.273
+        ],
+        "last_result": {
+          "requested": 20,
+          "found": 20
+        }
+      },
+      "after_mget": {
+        "latency": {
+          "avg_ms": 0.652,
+          "p50_ms": 0.607,
+          "p95_ms": 0.943,
+          "p99_ms": 1.035,
+          "min_ms": 0.541,
+          "max_ms": 1.035
+        },
+        "latency_samples_ms": [
+          0.943,
+          0.851,
+          0.635,
+          0.617,
+          0.57,
+          0.642,
+          0.595,
+          0.587,
+          0.574,
+          0.549,
+          0.677,
+          0.559,
+          0.574,
+          0.595,
+          0.607,
+          0.573,
+          0.715,
+          0.784,
+          0.61,
+          0.638,
+          0.608,
+          0.548,
+          0.541,
+          0.545,
+          0.592,
+          0.556,
+          1.035,
+          0.902,
+          0.643,
+          0.691
+        ],
+        "last_result": {
+          "requested": 20,
+          "found": 20
+        }
+      },
+      "after_mget_cache_hit": {
+        "latency": {
+          "avg_ms": 0.0,
+          "p50_ms": 0.0,
+          "p95_ms": 0.0,
+          "p99_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        },
+        "latency_samples_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "last_result": {
+          "requested": 20,
+          "found": 20
+        }
+      },
+      "comparison": {
+        "get_loop_to_mget": {
+          "p95_delta_ms": -16.408,
+          "p95_speedup": 18.4,
+          "avg_delta_ms": -11.809,
+          "avg_speedup": 19.112
+        },
+        "mget_to_cache_hit": {
+          "p95_delta_ms": -0.943,
+          "p95_speedup": null,
+          "avg_delta_ms": -0.652,
+          "avg_speedup": null
+        }
+      }
+    },
+    "bm25_ablation": {
+      "before_match_only": {
+        "quality": {
+          "hit_at_10": 0.0,
+          "mrr": 0.0
+        },
+        "latency": {
+          "avg_ms": 0.59,
+          "p50_ms": 0.56,
+          "p95_ms": 0.763,
+          "p99_ms": 1.259,
+          "min_ms": 0.436,
+          "max_ms": 1.259
+        }
+      },
+      "after_phrase_boost_bm25_analyzer": {
+        "quality": {
+          "hit_at_10": 1.0,
+          "mrr": 1.0
+        },
+        "latency": {
+          "avg_ms": 0.623,
+          "p50_ms": 0.601,
+          "p95_ms": 0.802,
+          "p99_ms": 1.176,
+          "min_ms": 0.476,
+          "max_ms": 1.176
+        }
+      },
+      "comparison": {
+        "hit10_delta": 1.0,
+        "mrr_delta": 1.0,
+        "p95_latency_delta_ms": 0.039
+      }
+    }
+  }
+}

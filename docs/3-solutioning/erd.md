@@ -2,11 +2,11 @@
 
 **Project**: Gaji - Interactive Fiction Platform  
 **Last Updated**: 2025-12-08 (Version 1.2)
-**Database Architecture**: PostgreSQL 15.x (Metadata) + VectorDB (Content & Embeddings)  
-**Backend Architecture**: MSA (FastAPI AI Service + Spring Boot CRUD Service)  
+**Database Architecture**: PostgreSQL 15.x with pgvector + Elasticsearch retrieval  
+**Backend Architecture**: Spring Boot modular backend for API, CRUD, and AI/RAG  
 **Novel Source**: Project Gutenberg Dataset (Direct Import)  
 **Migration Tool**: Flyway  
-**VectorDB**: ChromaDB (Development) / Pinecone (Production)
+**RAG Retrieval**: pgvector semantic candidates + Elasticsearch lexical/source lookup
 
 **Version 1.2 Changes**: Added book_comments table for user book reviews and discussions
 
@@ -19,7 +19,7 @@
 3. [MSA Backend Architecture](#msa-backend-architecture)
 4. [ERD Diagram](#erd-diagram)
 5. [PostgreSQL Table Definitions](#postgresql-table-definitions)
-6. [VectorDB Schema](#vectordb-schema)
+6. [pgvector Schema](#pgvector-schema)
 7. [Relationships](#relationships)
 8. [Indexes](#indexes)
 9. [Migration Strategy](#migration-strategy)
@@ -33,13 +33,13 @@
 **Hybrid Storage Strategy**: Separate metadata from content to optimize for different access patterns.
 
 - **PostgreSQL**: Relational metadata, user data, social graph, conversation structure
-- **VectorDB (ChromaDB/Pinecone)**: Novel full text, embeddings, LLM analysis results
+- **pgvector (pgvector/Elasticsearch)**: Novel full text, embeddings, LLM analysis results
 
 ### Schema Statistics
 
 - **PostgreSQL Tables**: 15 core tables (metadata only)
-- **PostgreSQL Extensions**: `uuid-ossp`, `pg_trgm` (removed `pgvector` - embeddings now in VectorDB)
-- **VectorDB Collections**: 5 collections (novel_passages, characters, locations, events, themes)
+- **PostgreSQL Extensions**: `uuid-ossp`, `pg_trgm` (removed `pgvector` - embeddings now in pgvector)
+- **pgvector Collections**: 5 collections (novel_passages, characters, locations, events, themes)
 - **Redis Data Structures**: 2 types (async task tracking, user activity feed)
 - **Total JSONB Columns**: 0 (no JSONB columns in current schema)
 
@@ -48,9 +48,9 @@
 1. **Content-Metadata Separation**:
 
    - **PostgreSQL**: Only Project Gutenberg metadata (title, author, ISBN, copyright status, etc.)
-   - **VectorDB**: Full text content, chunks, embeddings, all LLM-generated analysis
+   - **pgvector**: Full text content, chunks, embeddings, all LLM-generated analysis
 
-2. **Why VectorDB for Content?**:
+2. **Why pgvector for Content?**:
 
    - Optimized for semantic search and similarity queries
    - Native support for high-dimensional embeddings (Gemini Embedding API: 768 dimensions)
@@ -67,7 +67,7 @@
 4. **MSA Backend Architecture**:
 
    - **Spring Boot Service**: CRUD operations, user management, social features, metadata queries
-   - **FastAPI Service**: AI/LLM operations, embeddings, RAG pipeline, conversation generation
+   - **Spring Boot Service**: AI/LLM operations, embeddings, RAG pipeline, conversation generation
    - **Communication**: REST API + Long Polling for async AI operations
    - **Browser Notifications**: WebSocket/SSE for conversation completion alerts
 
@@ -107,17 +107,17 @@ graph TB
         DB1[(PostgreSQL)]
     end
 
-    subgraph FastAPI["FastAPI Service (AI)"]
+    subgraph Spring Boot["Spring Boot Service (AI)"]
         API2[AI API Endpoints]
         RAG[RAG Pipeline]
         EMB[Embedding Service]
         LLM[Gemini 2.5 Flash Client]
-        VDB[(VectorDB)]
+        VDB[(pgvector)]
     end
 
     subgraph Queue["Message Queue"]
         MQ[Redis/RabbitMQ]
-        WORKER[Celery Workers]
+        WORKER[Spring task execution Workers]
     end
 
     UI -->|CRUD Requests| API1
@@ -151,14 +151,14 @@ graph TB
 - **Social Features**: Follows, likes, memos
 - **Long Polling Endpoint**: `/api/conversations/{id}/status` (check AI generation progress)
 
-**FastAPI Service (Port 8000)**:
+**Spring Boot Service (Port 8000)**:
 
-- **Novel Ingestion**: Process Gutenberg dataset → VectorDB
-- **Embedding Generation**: Text → Gemini Embedding API → VectorDB
-- **RAG Pipeline**: Query VectorDB + prompt engineering
+- **Novel Ingestion**: Process Gutenberg dataset → pgvector
+- **Embedding Generation**: Text → Gemini Embedding API → pgvector
+- **RAG Pipeline**: Query pgvector + prompt engineering
 - **Conversation Generation**: Gemini 2.5 Flash integration
 - **LLM Analysis**: Character/location/event/theme extraction
-- **Async Task Management**: Celery task queue for long-running operations
+- **Async Task Management**: Spring task execution task queue for long-running operations
 
 ### Long Polling Flow for Conversation Creation
 
@@ -168,7 +168,7 @@ sequenceDiagram
     participant Frontend
     participant Spring as Spring Boot
     participant Queue as Redis Queue
-    participant FastAPI
+    participant Spring Boot
     participant LLM as Gemini 2.5 Flash
     participant Notify as Browser Notification
 
@@ -182,10 +182,10 @@ sequenceDiagram
         Spring-->>Frontend: {status: PENDING, progress: 30%}
     end
 
-    Queue->>FastAPI: Process task (conversation_id)
-    FastAPI->>LLM: Generate response (RAG + prompt)
-    LLM-->>FastAPI: Generated text
-    FastAPI->>Spring: POST /api/internal/conversations/{id}/complete (save messages)
+    Queue->>Spring Boot: Process task (conversation_id)
+    Spring Boot->>LLM: Generate response (RAG + prompt)
+    LLM-->>Spring Boot: Generated text
+    Spring Boot->>Spring: POST /api/internal/conversations/{id}/complete (save messages)
     Spring->>Spring: Update status to COMPLETED
 
     Frontend->>Spring: GET /api/conversations/{id}/status
@@ -202,16 +202,16 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    A[Gutenberg Dataset Files] -->|Batch Import| B[FastAPI Ingestion Service]
+    A[Gutenberg Dataset Files] -->|Batch Import| B[Spring Boot Ingestion Service]
     B -->|Extract Metadata| C[PostgreSQL: novels]
     B -->|Full Text| D[Chunking Service]
     D -->|200-500 word passages| E[Gemini Embedding API]
-    E -->|768-dim vectors| F[VectorDB: novel_passages]
+    E -->|768-dim vectors| F[pgvector: novel_passages]
     F -->|Passage IDs| G[LLM Analysis Pipeline]
-    G -->|Characters| H[VectorDB: characters]
-    G -->|Locations| I[VectorDB: locations]
-    G -->|Events| J[VectorDB: events]
-    G -->|Themes| K[VectorDB: themes]
+    G -->|Characters| H[pgvector: characters]
+    G -->|Locations| I[pgvector: locations]
+    G -->|Events| J[pgvector: events]
+    G -->|Themes| K[pgvector: themes]
     C -->|novel_id reference| F
 ```
 
@@ -221,10 +221,10 @@ graph LR
 
 1. User selects novel from PostgreSQL `novels` table (metadata browsing via Spring Boot)
 2. Frontend requests conversation generation → Spring Boot enqueues task
-3. FastAPI worker queries VectorDB `novel_passages` collection with semantic search
+3. Spring Boot worker queries pgvector `novel_passages` collection with semantic search
 4. Retrieved passages + character/location/event metadata → prompt engineering
 5. Gemini 2.5 Flash generates scenario response
-6. FastAPI sends completed messages to Spring Boot
+6. Spring Boot sends completed messages to Spring Boot
 7. Spring Boot saves to PostgreSQL `conversations` + `messages` tables
 8. Frontend long polling detects completion → browser notification
 
@@ -233,9 +233,9 @@ graph LR
 - PostgreSQL query on `novels` table (title, author, genre, era filters)
 - Fast metadata-only queries, no content loading
 
-**Character Search** (FastAPI):
+**Character Search** (Spring Boot):
 
-- VectorDB semantic search on `characters` collection
+- pgvector semantic search on `characters` collection
 - Returns character metadata + embedding similarity scores
 
 ---
@@ -244,10 +244,10 @@ graph LR
 
 ### Communication Patterns
 
-**REST API** (Spring Boot ↔ FastAPI):
+**REST API** (Spring Boot ↔ Spring Boot):
 
-- Spring Boot calls FastAPI for AI operations: `POST http://fastapi:8000/api/ai/generate`
-- FastAPI calls Spring Boot to update status: `POST http://spring:8080/api/internal/conversations/{id}/complete`
+- Spring Boot calls Spring Boot for AI operations: `POST http://backend:8000/api/ai/generate`
+- Spring Boot calls Spring Boot to update status: `POST http://spring:8080/api/internal/conversations/{id}/complete`
 
 **Long Polling** (Frontend ↔ Spring Boot):
 
@@ -317,7 +317,7 @@ public ConversationForkResult forkConversation(UUID conversationId, UUID userId)
 
 ## ERD Diagram
 
-**Note**: This diagram shows only PostgreSQL tables. VectorDB collections are detailed in the [VectorDB Schema](#vectordb-schema) section.
+**Note**: This diagram shows only PostgreSQL tables. pgvector collections are detailed in the [pgvector Schema](#pgvector-schema) section.
 
 ```mermaid
 erDiagram
@@ -391,7 +391,7 @@ erDiagram
         UUID id PK
         UUID root_scenario_id FK
         UUID leaf_scenario_id FK
-        VARCHAR character_vectordb_id
+        VARCHAR character_pgvector_id
         VARCHAR attribute
         TEXT original_value
         TEXT new_value
@@ -403,7 +403,7 @@ erDiagram
         UUID id PK
         UUID root_scenario_id FK
         UUID leaf_scenario_id FK
-        VARCHAR event_vectordb_id
+        VARCHAR event_pgvector_id
         VARCHAR alteration_type
         TEXT original_description
         TEXT new_description
@@ -415,7 +415,7 @@ erDiagram
         UUID id PK
         UUID root_scenario_id FK
         UUID leaf_scenario_id FK
-        VARCHAR location_vectordb_id
+        VARCHAR location_pgvector_id
         VARCHAR modification_type
         TEXT original_setting
         TEXT new_setting
@@ -703,15 +703,15 @@ CREATE TABLE novels (
 
 **NOTE**:
 
-- **NO `full_text_s3_path` column** - text is in VectorDB
-- **NO `total_word_count` column** - computed from VectorDB metadata
-- **Removed chapters, passages, all text content** - handled by VectorDB
+- **NO `full_text_s3_path` column** - text is in pgvector
+- **NO `total_word_count` column** - computed from pgvector metadata
+- **Removed chapters, passages, all text content** - handled by pgvector
 
 ---
 
 #### `base_scenarios`
 
-Base scenario metadata linking to VectorDB content.
+Base scenario metadata linking to pgvector content.
 
 ```sql
 CREATE TABLE base_scenarios (
@@ -719,8 +719,8 @@ CREATE TABLE base_scenarios (
     novel_id UUID NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
     base_story VARCHAR(100) NOT NULL,  -- Short identifier: 'pride_and_prejudice'
 
-    -- VectorDB References (stored as metadata, not content)
-    vectordb_passage_ids TEXT[],  -- Array of VectorDB passage document IDs
+    -- pgvector References (stored as metadata, not content)
+    pgvector_passage_ids TEXT[],  -- Array of pgvector passage document IDs
     chapter_number INTEGER,  -- Logical chapter number (if applicable)
     page_range VARCHAR(50),  -- Page range for this scenario (e.g., "45-78")
 
@@ -745,7 +745,7 @@ CREATE TABLE base_scenarios (
 - `id`: Unique base scenario identifier
 - `novel_id`: Reference to novel metadata
 - `base_story`: Short identifier (e.g., 'pride_and_prejudice')
-- `vectordb_passage_ids`: Array of VectorDB document IDs for passages in this scenario
+- `pgvector_passage_ids`: Array of pgvector document IDs for passages in this scenario
 - `chapter_number`: Logical chapter number (optional)
 - `page_range`: Page range (e.g., "45-78", optional)
 - `character_summary`: Brief character summary (for UI preview)
@@ -762,10 +762,10 @@ CREATE TABLE base_scenarios (
 
 **Design Rationale**:
 
-- Stores **references** to VectorDB content, not the content itself
+- Stores **references** to pgvector content, not the content itself
 - Summaries are brief metadata for browsing/filtering, not full LLM analysis
-- Full character/location/event/theme analysis lives in VectorDB collections
-- `vectordb_passage_ids` enables quick lookup of related passages
+- Full character/location/event/theme analysis lives in pgvector collections
+- `pgvector_passage_ids` enables quick lookup of related passages
 
 ---
 
@@ -871,8 +871,8 @@ CREATE TABLE scenario_character_changes (
     root_scenario_id UUID REFERENCES root_user_scenarios(id) ON DELETE CASCADE,
     leaf_scenario_id UUID REFERENCES leaf_user_scenarios(id) ON DELETE CASCADE,
 
-    -- VectorDB Reference
-    character_vectordb_id VARCHAR(100) NOT NULL,  -- Document ID in VectorDB characters collection
+    -- pgvector Reference
+    character_pgvector_id VARCHAR(100) NOT NULL,  -- Document ID in pgvector characters collection
 
     -- Modification Parameters
     attribute VARCHAR(100) NOT NULL,  -- e.g., 'personality', 'motivation', 'backstory'
@@ -893,9 +893,9 @@ CREATE TABLE scenario_character_changes (
 
 **Design Changes**:
 
-- **NO `character_id` FK** - characters now in VectorDB
-- **NEW `character_vectordb_id`** - reference to VectorDB character document
-- User browses characters via VectorDB semantic search
+- **NO `character_id` FK** - characters now in pgvector
+- **NEW `character_pgvector_id`** - reference to pgvector character document
+- User browses characters via pgvector semantic search
 - Modification parameters still stored in PostgreSQL for relational queries
 
 ---
@@ -910,8 +910,8 @@ CREATE TABLE scenario_event_alterations (
     root_scenario_id UUID REFERENCES root_user_scenarios(id) ON DELETE CASCADE,
     leaf_scenario_id UUID REFERENCES leaf_user_scenarios(id) ON DELETE CASCADE,
 
-    -- VectorDB Reference
-    event_vectordb_id VARCHAR(100) NOT NULL,  -- Document ID in VectorDB events collection
+    -- pgvector Reference
+    event_pgvector_id VARCHAR(100) NOT NULL,  -- Document ID in pgvector events collection
 
     -- Modification Parameters
     alteration_type VARCHAR(50) NOT NULL CHECK (alteration_type IN (
@@ -944,8 +944,8 @@ CREATE TABLE scenario_setting_modifications (
     root_scenario_id UUID REFERENCES root_user_scenarios(id) ON DELETE CASCADE,
     leaf_scenario_id UUID REFERENCES leaf_user_scenarios(id) ON DELETE CASCADE,
 
-    -- VectorDB Reference (optional - setting can be entirely new)
-    location_vectordb_id VARCHAR(100),  -- Nullable: reference to VectorDB locations collection
+    -- pgvector Reference (optional - setting can be entirely new)
+    location_pgvector_id VARCHAR(100),  -- Nullable: reference to pgvector locations collection
 
     -- Modification Parameters
     modification_type VARCHAR(50) NOT NULL CHECK (modification_type IN (
@@ -1319,9 +1319,9 @@ CREATE TABLE system_settings (
 
 ---
 
-## VectorDB Schema
+## pgvector Schema
 
-### Why VectorDB for Novel Content?
+### Why pgvector for Novel Content?
 
 1. **Optimized for Semantic Search**: Native support for cosine similarity, approximate nearest neighbors
 2. **Scalability**: Horizontal scaling for large text corpora (thousands of novels)
@@ -1329,7 +1329,7 @@ CREATE TABLE system_settings (
 4. **Metadata Filtering**: Combined vector search + metadata filters (genre, era, character names)
 5. **Cost Efficiency**: Reduce PostgreSQL storage/query costs for large text datasets
 
-### ChromaDB Collections
+### pgvector Collections
 
 #### Collection: `novel_passages`
 
@@ -1488,7 +1488,7 @@ CREATE TABLE system_settings (
 
 ---
 
-### VectorDB Query Examples
+### pgvector Query Examples
 
 **Example 1: Find similar characters**
 
@@ -1580,17 +1580,17 @@ ALTER TABLE book_comments ADD FOREIGN KEY (book_id) REFERENCES novels(id) ON DEL
 
 ### Cross-Database References
 
-**PostgreSQL → VectorDB**:
+**PostgreSQL → pgvector**:
 
-- `base_scenarios.vectordb_passage_ids[]` → `novel_passages` collection document IDs
-- `scenario_character_changes.character_vectordb_id` → `characters` collection document ID
-- `scenario_event_alterations.event_vectordb_id` → `events` collection document ID
-- `scenario_setting_modifications.location_vectordb_id` → `locations` collection document ID
+- `base_scenarios.pgvector_passage_ids[]` → `novel_passages` collection document IDs
+- `scenario_character_changes.character_pgvector_id` → `characters` collection document ID
+- `scenario_event_alterations.event_pgvector_id` → `events` collection document ID
+- `scenario_setting_modifications.location_pgvector_id` → `locations` collection document ID
 
-**VectorDB → PostgreSQL**:
+**pgvector → PostgreSQL**:
 
-- All VectorDB collections have `metadata.novel_id` → `novels.id` (UUID)
-- VectorDB `characters.metadata.relationships[].related_character_id` → Other character documents in same collection
+- All pgvector collections have `metadata.novel_id` → `novels.id` (UUID)
+- pgvector `characters.metadata.relationships[].related_character_id` → Other character documents in same collection
 
 ---
 
@@ -1658,12 +1658,12 @@ CREATE INDEX idx_book_comments_book_id ON book_comments(book_id, created_at DESC
 CREATE INDEX idx_book_comments_user_id ON book_comments(user_id);
 ```
 
-### VectorDB Indexes
+### pgvector Indexes
 
-**ChromaDB**: Automatic HNSW indexing on all embeddings
-**Pinecone**: Automatic indexing with metadata filters
+**pgvector**: Automatic HNSW indexing on all embeddings
+**Elasticsearch**: Automatic indexing with metadata filters
 
-**Metadata Index Configuration** (ChromaDB):
+**Metadata Index Configuration** (pgvector):
 
 ```python
 collection.create_index(
@@ -1684,7 +1684,7 @@ collection.create_index(
 
 1. Create `users` table
 2. Create `novels` table (metadata only)
-3. Create `base_scenarios` table with VectorDB reference fields
+3. Create `base_scenarios` table with pgvector reference fields
 4. Create scenario tables (`root_user_scenarios`, `leaf_user_scenarios`, scenario parameter tables)
 5. Create conversation tables (`conversations`, `messages`, `conversation_message_links`)
 6. Create social feature tables (`user_follows`, `conversation_likes`, `conversation_memos`)
@@ -1755,14 +1755,14 @@ activities = redis.zrevrange(
 
 ---
 
-### Phase 3: VectorDB Setup (Week 1)
+### Phase 3: pgvector Setup (Week 1)
 
-1. Initialize ChromaDB client (development)
+1. Initialize pgvector client (development)
 2. Create 5 collections: `novel_passages`, `characters`, `locations`, `events`, `themes`
 3. Configure HNSW indexes (ef_construction=200, M=16)
 4. Set up metadata index configurations
 
-**Setup Script**: `scripts/vectordb_init.py`
+**Setup Script**: `scripts/pgvector_init.py`
 
 ---
 
@@ -1773,25 +1773,25 @@ activities = redis.zrevrange(
 ```
 Project Gutenberg Dataset Files
     ↓
-FastAPI Ingestion Service (Background Task)
+Spring Boot Ingestion Service (Background Task)
     ├─→ Spring Boot API: Insert novels metadata
     └─→ Chunking Service (200-500 words)
             ├─→ Gemini Embedding API
-            └─→ VectorDB: Insert novel_passages
+            └─→ pgvector: Insert novel_passages
                     ↓
             LLM Analysis Pipeline (Gemini 2.5 Flash)
-                    ├─→ Character Extraction → VectorDB: characters
-                    ├─→ Location Extraction → VectorDB: locations
-                    ├─→ Event Extraction → VectorDB: events
-                    └─→ Theme Extraction → VectorDB: themes
+                    ├─→ Character Extraction → pgvector: characters
+                    ├─→ Location Extraction → pgvector: locations
+                    ├─→ Event Extraction → pgvector: events
+                    └─→ Theme Extraction → pgvector: themes
 ```
 
 **Implementation**:
 
 - **Data Source**: Project Gutenberg Dataset (pre-downloaded text files, not API)
-- **FastAPI endpoint**: `POST /api/ai/novels/ingest` (accepts batch of novel files)
+- **Spring Boot endpoint**: `POST /api/ai/novels/ingest` (accepts batch of novel files)
 - **Spring Boot coordination**: Track ingestion jobs, provide status via long polling
-- **Background job**: Celery task queue for LLM analysis
+- **Background job**: Spring task execution task queue for LLM analysis
 - **Progress tracking**: Long polling endpoint `/api/novels/ingestion/{job_id}/status`
 - **Browser notification**: Alert user when ingestion completes
 
@@ -1802,7 +1802,7 @@ FastAPI Ingestion Service (Background Task)
 **If migrating from previous ERD with PostgreSQL pgvector**:
 
 ```sql
--- Migration script to export data to VectorDB
+-- Migration script to export data to pgvector
 -- Export novel_passages
 COPY (
     SELECT id, novel_id, chapter_id, sequence_order, content_text,
@@ -1810,11 +1810,11 @@ COPY (
     FROM novel_passages
 ) TO '/tmp/passages.csv' CSV HEADER;
 
--- Python script to import to VectorDB
-import chromadb
+-- Python script to import to pgvector
+import pgvector
 import csv
 
-client = chromadb.PersistentClient(path="./chroma_data")
+client = pgvector.PersistentClient(path="./chroma_data")
 collection = client.get_or_create_collection(
     name="novel_passages",
     metadata={"hnsw:space": "cosine"}
@@ -1844,15 +1844,15 @@ with open('/tmp/passages.csv', 'r') as f:
 
 **PostgreSQL**: Use Flyway versioned migrations with `V{version}__description.sql`
 
-**VectorDB**:
+**pgvector**:
 
-- ChromaDB: Snapshot collections before major updates
-- Pinecone: Use namespace versioning (e.g., `v1_passages`, `v2_passages`)
+- pgvector: Snapshot collections before major updates
+- Elasticsearch: Use namespace versioning (e.g., `v1_passages`, `v2_passages`)
 
 **Example Rollback**:
 
 ```python
-# ChromaDB snapshot
+# pgvector snapshot
 collection.snapshot(name="pre_migration_snapshot_2025_01_14")
 
 # Restore from snapshot
@@ -1876,13 +1876,13 @@ client.restore_collection("novel_passages", snapshot="pre_migration_snapshot_202
 - **Responsibilities**: User management, CRUD operations, social features, metadata queries
 - **Communication**: REST API, Long Polling endpoints
 
-**FastAPI (AI Service)**:
+**Spring Boot (Spring RAG module)**:
 
 - **Version**: 0.104+
 - **Port**: 8000
 - **Language**: Python 3.11+
-- **Framework**: FastAPI, Celery, LangChain
-- **Database**: VectorDB (ChromaDB/Pinecone)
+- **Framework**: Spring Boot, Spring task execution, LangChain
+- **Database**: pgvector (pgvector/Elasticsearch)
 - **Responsibilities**: AI/LLM operations, embeddings, RAG pipeline, novel ingestion
 - **Communication**: REST API, async task queue
 
@@ -1890,7 +1890,7 @@ client.restore_collection("novel_passages", snapshot="pre_migration_snapshot_202
 
 - **Development**: Redis
 - **Production**: RabbitMQ (optional)
-- **Purpose**: Async task queue for AI operations (Celery workers)
+- **Purpose**: Async task queue for AI operations (Spring task execution workers)
 
 ### PostgreSQL
 
@@ -1898,15 +1898,15 @@ client.restore_collection("novel_passages", snapshot="pre_migration_snapshot_202
 - **Extensions**: `uuid-ossp`, `pg_trgm`
 - **Purpose**: Relational metadata, user data, social graph
 
-### VectorDB Options
+### pgvector Options
 
-**Development: ChromaDB**
+**Development: pgvector**
 
 - **Deployment**: Embedded Python client
 - **Storage**: Local filesystem (`./chroma_data`)
 - **Advantages**: Zero-config, fast local development
 
-**Production: Pinecone**
+**Production: Elasticsearch**
 
 - **Deployment**: Managed cloud service
 - **Pricing**: $70/month for 100GB index (1M+ vectors)
@@ -1916,7 +1916,7 @@ client.restore_collection("novel_passages", snapshot="pre_migration_snapshot_202
 
 - **Source**: Project Gutenberg Dataset
 - **Format**: Pre-downloaded text files (not real-time API)
-- **Ingestion**: Batch processing via FastAPI service
+- **Ingestion**: Batch processing via Spring Boot service
 - **Metadata Extraction**: Title, author, publication year, genre, etc.
 
 ### Embedding Model
@@ -1943,7 +1943,7 @@ client.restore_collection("novel_passages", snapshot="pre_migration_snapshot_202
 
 ### PostgreSQL-Only ERD
 
-This diagram shows the clean relational structure of the 14 PostgreSQL tables without VectorDB references.
+This diagram shows the clean relational structure of the 14 PostgreSQL tables without pgvector references.
 
 ```mermaid
 erDiagram
@@ -2031,7 +2031,7 @@ erDiagram
         UUID id PK
         UUID novel_id FK
         VARCHAR base_story
-        TEXT_ARRAY vectordb_passage_ids
+        TEXT_ARRAY pgvector_passage_ids
         INTEGER chapter_number
         VARCHAR page_range
         TEXT character_summary
@@ -2072,7 +2072,7 @@ erDiagram
         UUID id PK
         UUID root_scenario_id FK
         UUID leaf_scenario_id FK
-        VARCHAR character_vectordb_id
+        VARCHAR character_pgvector_id
         VARCHAR attribute
         TEXT original_value
         TEXT new_value
@@ -2084,7 +2084,7 @@ erDiagram
         UUID id PK
         UUID root_scenario_id FK
         UUID leaf_scenario_id FK
-        VARCHAR event_vectordb_id
+        VARCHAR event_pgvector_id
         VARCHAR alteration_type
         TEXT original_description
         TEXT new_description
@@ -2096,7 +2096,7 @@ erDiagram
         UUID id PK
         UUID root_scenario_id FK
         UUID leaf_scenario_id FK
-        VARCHAR location_vectordb_id
+        VARCHAR location_pgvector_id
         VARCHAR modification_type
         TEXT original_setting
         TEXT new_setting
@@ -2229,13 +2229,13 @@ erDiagram
 
 ---
 
-### VectorDB Collections Structure
+### pgvector Collections Structure
 
-This diagram shows the 5 VectorDB collections and their cross-references.
+This diagram shows the 5 pgvector collections and their cross-references.
 
 ```mermaid
 graph TB
-    subgraph VectorDB["VectorDB (ChromaDB/Pinecone)"]
+    subgraph pgvector["pgvector (pgvector/Elasticsearch)"]
         NP[novel_passages<br/>768-dim embeddings<br/>200-500 words per chunk]
         CHAR[characters<br/>LLM-extracted profiles<br/>Personality, relationships]
         LOC[locations<br/>Settings & places<br/>Physical descriptions]
@@ -2257,10 +2257,10 @@ graph TB
     NP -->|extracted from passages| EVT
     NP -->|extracted from passages| THM
 
-    BASE -->|vectordb_passage_ids| NP
-    CHAR_PARAMS -.->|character_vectordb_id| CHAR
-    EVT_PARAMS -.->|event_vectordb_id| EVT
-    LOC_PARAMS -.->|location_vectordb_id| LOC
+    BASE -->|pgvector_passage_ids| NP
+    CHAR_PARAMS -.->|character_pgvector_id| CHAR
+    EVT_PARAMS -.->|event_pgvector_id| EVT
+    LOC_PARAMS -.->|location_pgvector_id| LOC
 
     CHAR -.->|relationships| CHAR
     EVT -.->|involves_characters| CHAR
@@ -2286,27 +2286,27 @@ graph TB
    - Full text content chunked into 200-500 word passages
    - 768-dimensional Gemini embeddings
    - Metadata: `novel_id`, `chapter_number`, `passage_type`, `word_count`
-   - Referenced by `base_scenarios.vectordb_passage_ids[]`
+   - Referenced by `base_scenarios.pgvector_passage_ids[]`
 
 2. **characters** (LLM Analysis):
 
    - Character profiles extracted by LLM from passages
    - Metadata: `name`, `role`, `personality_traits[]`, `relationships[]`
    - Cross-references: `relationships[].related_character_id` → other characters
-   - Referenced by `scenario_character_changes.character_vectordb_id`
+   - Referenced by `scenario_character_changes.character_pgvector_id`
 
 3. **locations** (LLM Analysis):
 
    - Settings and places extracted from passages
    - Metadata: `name`, `location_type`, `time_period`, `description`
-   - Referenced by `scenario_setting_modifications.location_vectordb_id`
+   - Referenced by `scenario_setting_modifications.location_pgvector_id`
 
 4. **events** (LLM Analysis):
 
    - Plot events and story beats
    - Metadata: `event_type`, `participants[]`, `location_id`, `temporal_order`
    - Cross-references: `participants[]` → characters, `location_id` → locations
-   - Referenced by `scenario_event_alterations.event_vectordb_id`
+   - Referenced by `scenario_event_alterations.event_pgvector_id`
 
 5. **themes** (LLM Analysis):
    - Thematic elements and literary motifs
@@ -2345,8 +2345,8 @@ graph TB
         ACTIVITY[Activity Timeline API<br/>/api/users/:id/activities]
     end
 
-    subgraph FastAPI["FastAPI Service"]
-        CELERY[Celery Workers<br/>AI Generation Tasks]
+    subgraph Spring Boot["Spring Boot Service"]
+        CELERY[Spring task execution Workers<br/>AI Generation Tasks]
     end
 
     CELERY -->|Update task status| TASK1
@@ -2452,15 +2452,15 @@ sequenceDiagram
     participant Frontend
     participant Spring as Spring Boot
     participant Redis
-    participant FastAPI
-    participant Celery
+    participant Spring Boot
+    participant Spring task execution
 
     User->>Frontend: Click "대화 시작"
     Frontend->>Spring: POST /api/conversations
-    Spring->>FastAPI: POST /api/ai/generate
-    FastAPI->>Celery: Enqueue task
-    Celery->>Redis: HSET task:{id} status=PENDING
-    FastAPI-->>Spring: 202 Accepted (task_id)
+    Spring->>Spring Boot: POST /api/ai/generate
+    Spring Boot->>Spring task execution: Enqueue task
+    Spring task execution->>Redis: HSET task:{id} status=PENDING
+    Spring Boot-->>Spring: 202 Accepted (task_id)
     Spring-->>Frontend: 201 Created (conversation_id, task_id)
 
     loop Long Polling (every 2 seconds)
@@ -2470,9 +2470,9 @@ sequenceDiagram
         Spring-->>Frontend: {status: PENDING, progress: 30%}
     end
 
-    Celery->>Celery: Process AI generation
-    Celery->>Redis: HSET task:{id} status=COMPLETED
-    Celery->>Spring: POST /internal/conversations/{id}/complete
+    Spring task execution->>Spring task execution: Process AI generation
+    Spring task execution->>Redis: HSET task:{id} status=COMPLETED
+    Spring task execution->>Spring: POST /internal/conversations/{id}/complete
 
     Frontend->>Spring: GET /api/conversations/{id}/status
     Spring->>Redis: HGETALL task:{id}
@@ -2484,7 +2484,7 @@ sequenceDiagram
 **Key Advantages**:
 
 - No database polling overhead (Redis in-memory)
-- Fast status updates from Celery workers
+- Fast status updates from Spring task execution workers
 - Automatic task cleanup via TTL
 - Scalable to thousands of concurrent conversations
 
@@ -2504,7 +2504,7 @@ sequenceDiagram
 - **Updated Migration Strategy**: Removed user_notifications from Phase 1 table list
 - **Added Storage-Specific Diagrams**:
   - PostgreSQL-only ERD showing clean relational structure (13 tables)
-  - VectorDB collections structure with cross-references (5 collections)
+  - pgvector collections structure with cross-references (5 collections)
   - Redis data structures with key patterns and data flow (2 types)
 
 **2025-11-15**: Optimized data storage architecture with Redis integration
@@ -2532,7 +2532,7 @@ sequenceDiagram
   - Polymorphic entity references (entity_id, entity_type)
   - Support for browser push notifications and in-app notification center
 - **async_task_status**: Long-running task tracking for AI operations
-  - Celery integration with task_id tracking
+  - Spring task execution integration with task_id tracking
   - Progress percentage monitoring (0-100)
   - JSONB task parameters and results storage
   - Status tracking: pending, processing, completed, failed, cancelled
@@ -2547,7 +2547,7 @@ sequenceDiagram
 
 **2025-11-14**: Complete architecture redesign
 
-- **MSA Backend Architecture**: Separated Spring Boot (CRUD Service, Port 8080) and FastAPI (AI Service, Port 8000)
+- **Backend Architecture**: Consolidated Spring Boot modular backend owns CRUD and AI/RAG orchestration
 - **Novel Data Source**: Changed from Gutenberg API to Gutenberg Dataset (batch import, not real-time API)
 - **Long Polling Pattern**: Added async communication for AI operations (check status every 2 seconds)
 - **Browser Notifications**: Added Notification API integration for task completion alerts
@@ -2558,11 +2558,11 @@ sequenceDiagram
   - Example 3: 10 messages → 6 copied (최대값 적용)
   - Example 4: 2 messages → 2 copied (전체 복사)
 - Removed all novel content tables from PostgreSQL (chapters, passages, characters, locations, events, themes, narrative_arcs)
-- Migrated content storage to VectorDB (ChromaDB/Pinecone)
+- Migrated content storage to pgvector (pgvector/Elasticsearch)
 - Retained only metadata in PostgreSQL (novels, base_scenarios)
-- Updated scenario parameter tables to reference VectorDB document IDs
-- Removed `pgvector` extension (embeddings now in VectorDB)
-- Added VectorDB schema documentation with 5 collections
+- Updated scenario parameter tables to reference pgvector document IDs
+- Removed `pgvector` extension (embeddings now in pgvector)
+- Added pgvector schema documentation with 5 collections
 - Added MSA communication diagrams (mermaid)
 - Added long polling sequence diagram
 - Added conversation fork business logic example (Java)

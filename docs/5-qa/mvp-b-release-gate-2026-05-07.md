@@ -11,8 +11,8 @@ MVP-B validates learner-facing hybrid RAG chat integration after MVP-A retrieval
 In scope:
 
 - Spring learner endpoint: `POST /api/v1/conversations/{conversationId}/messages/chat-completion`
-- Spring to canonical FastAPI AI service proxy
-- FastAPI direct chat endpoint: `POST /v1/chat/completions`
+- Spring to canonical Spring RAG module proxy
+- Spring Boot direct chat endpoint: `POST /api/v1/ai/chat/completions`
 - Hybrid retrieval context insertion, citation metadata, prompt-injection guardrails
 - Conversation owner authorization and persisted user/assistant turns
 
@@ -25,14 +25,14 @@ Out of scope:
 
 ## Fixes Applied During Gate
 
-1. `gajiAI/app/routers/rag.py`
+1. `gajiBE/app/routers/rag.py`
    - Added `fallback_reason` for degraded/partial retrieval responses.
    - Keeps clients and QA gates from seeing `fallback_used=true` with no reason.
 
-2. `gajiAI/app/routers/direct_chat.py`
+2. `gajiBE/app/routers/direct_chat.py`
    - Propagates RAG `fallback_reason` into learner chat metadata.
 
-3. `gajiAI/app/services/elasticsearch_passage_client.py`
+3. `gajiBE/app/services/elasticsearch_passage_client.py`
    - Relaxed BM25 match operator from `and` to `or`.
    - Result: natural learner questions no longer degrade to vector-only retrieval when extra words are present.
 
@@ -48,9 +48,9 @@ Out of scope:
 | Dependency | Result |
 | --- | --- |
 | Spring backend `localhost:18083` | `UP` |
-| FastAPI AI service | `healthy` |
+| Spring RAG module | `healthy` |
 | Gemini API | `connected` |
-| ChromaDB | `connected` |
+| pgvector | `connected` |
 | Elasticsearch | `green` |
 | Redis | `connected` |
 | PostgreSQL | `UP` |
@@ -64,7 +64,7 @@ Flyway migration V58 applied successfully. DB check after final E2E:
 
 | Area | Command | Result |
 | --- | --- | --- |
-| AI service | `/tmp/gaji-ai-test-venv/bin/python -m pytest -o addopts='' tests` | 55 passed |
+| Spring RAG module | `/tmp/gajiBE-test-venv/bin/python -m pytest -o addopts='' tests` | 55 passed |
 | Spring API app | `./gradlew :apps:api-app:test` | BUILD SUCCESSFUL |
 | Frontend typecheck | `pnpm exec vue-tsc --noEmit` | passed |
 | Frontend unit tests | `pnpm test:run -- --reporter=dot` | 28 files, 267 tests passed |
@@ -137,7 +137,7 @@ Gate assertions:
 
 MVP-B release gate is closed as PASS with non-blocking concerns.
 
-The learner chat path now performs a real Spring-authenticated conversation turn, retrieves hybrid RAG context from the canonical AI service, returns grounded citation metadata without passage text leakage, persists both user and assistant messages, blocks non-owner writes, and keeps fallback metadata contract-grade.
+The learner chat path now performs a real Spring-authenticated conversation turn, retrieves hybrid RAG context from the Spring RAG module, returns grounded citation metadata without passage text leakage, persists both user and assistant messages, blocks non-owner writes, and keeps fallback metadata contract-grade.
 
 Recommended next story: MVP-C RAG Chat Hardening and Observability.
 

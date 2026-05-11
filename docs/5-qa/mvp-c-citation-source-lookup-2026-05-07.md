@@ -11,7 +11,7 @@ This story makes persisted RAG chat citations inspectable from the learner chat 
 Implemented:
 
 - Spring source lookup endpoint for assistant-message RAG citations.
-- FastAPI exact passage source endpoint backed by Elasticsearch.
+- Spring Boot exact passage source endpoint backed by Elasticsearch.
 - Learner-bounded `rag:read` broker token path used only by Spring source lookup.
 - Chat citation drawer in the frontend.
 - Unit, type, build, and live source lookup smoke verification.
@@ -28,18 +28,18 @@ Spring:
 
 - `GET /api/v1/conversations/{conversationId}/messages/{assistantMessageId}/rag-sources`
 
-FastAPI internal:
+Spring Boot internal:
 
-- `POST /v1/rag/sources/passages`
+- `POST /api/v1/conversations/{id}/messages/{assistantMessageId}/rag-sources`
 
-The Spring endpoint verifies the conversation owner or operator role, reads only persisted citation IDs/ranks from PostgreSQL, then asks FastAPI for exact source text by passage ID. PostgreSQL still does not store passage text, prompts, or embeddings.
+The Spring endpoint verifies the conversation owner or operator role, reads only persisted citation IDs/ranks from PostgreSQL, then asks Spring Boot for exact source text by passage ID. PostgreSQL still does not store passage text, prompts, or embeddings.
 
 ## Security
 
 - Non-owners receive 403 from the Spring endpoint.
-- Regular users still cannot request arbitrary public RAG scopes through `/api/v1/ai-token`.
+- Regular users still cannot request arbitrary public RAG scopes through `/api/v1/ai/chat/completions`.
 - Source lookup uses a dedicated bounded broker path that issues only `rag:read` and only with the citation novel ID claim.
-- FastAPI re-checks `novel_ids` before returning exact passage sources.
+- Spring Boot re-checks `novel_ids` before returning exact passage sources.
 - The frontend renders source text as text interpolation, not HTML.
 
 ## Frontend
@@ -63,7 +63,7 @@ Automated:
 
 | Area | Command | Result |
 | --- | --- | --- |
-| AI service | `/tmp/gaji-ai-test-venv/bin/python -m pytest -o addopts='' tests` | 63 passed |
+| Spring RAG module | `/tmp/gajiBE-test-venv/bin/python -m pytest -o addopts='' tests` | 63 passed |
 | Spring API app | `./gradlew :apps:api-app:test` | BUILD SUCCESSFUL |
 | Frontend tests | `pnpm vitest run` | 268 passed |
 | Frontend type/build | `pnpm build:check` | PASS |

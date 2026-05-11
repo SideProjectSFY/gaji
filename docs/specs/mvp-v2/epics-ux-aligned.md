@@ -491,7 +491,7 @@ So that direct AI access remains secure by default.
 
 **Acceptance Criteria:**
 
-**Given** AI token issuance and validation flow
+**Given** Spring auth validation and validation flow
 **When** security gate runs
 **Then** token TTL <= 5 minutes, mandatory scope claims, and ownership checks are verified
 **And** any missing/invalid claims are denied and audited with correlation IDs.

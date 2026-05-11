@@ -232,7 +232,7 @@ Success for gaji is defined as sustained, self-directed language practice throug
 
 ### Core Features
 
-MVP v2 will be delivered in 8 weeks, leveraging existing systems in `gajiFE-next`, `gajiBE`, and `gajiAI`, while executing a major UI transformation.
+MVP v2 will be delivered in 8 weeks, leveraging existing systems in `gajiFE`, `gajiBE`, and `gajiBE`, while executing a major UI transformation.
 
 1. Parent-linked child account with minimal consent flow.
 2. Chapter-context character conversation experience (web/mobile).

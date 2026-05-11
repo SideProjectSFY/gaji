@@ -20,7 +20,7 @@ MVP-B/C chat path latency is dominated by remote AI/RAG work. The backend should
 | Area | Env var | Default | Purpose |
 | --- | --- | --- | --- |
 | Java threads | `SPRING_THREADS_VIRTUAL_ENABLED` | `true` | Enables Spring Boot virtual threads on Java 21. |
-| AI chat guard | `AI_CHAT_MAX_CONCURRENT_GENERATIONS` | `10` | Max simultaneous `/v1/chat/completions` proxy calls. |
+| AI chat guard | `AI_CHAT_MAX_CONCURRENT_GENERATIONS` | `10` | Max simultaneous `/api/v1/ai/chat/completions` proxy calls. |
 | AI chat guard | `AI_CHAT_ACQUIRE_TIMEOUT_MS` | `500` | Wait time before returning 503 when chat capacity is saturated. |
 | Hikari | `DB_HIKARI_POOL_NAME` | `GajiApiHikariPool` | Stable pool name for metrics and logs. |
 | Hikari | `DB_HIKARI_MAXIMUM_POOL_SIZE` | profile-specific | Max database connections. |
@@ -36,7 +36,7 @@ MVP-B/C chat path latency is dominated by remote AI/RAG work. The backend should
 `MessageService.submitMessageWithChatCompletion` already follows the correct boundary:
 
 1. Save and validate the user message in a short transaction.
-2. Call FastAPI/Gemini outside the database transaction.
+2. Call Spring Boot/Gemini outside the database transaction.
 3. Save the assistant response and metadata in a second short transaction.
 
 This means a slow provider call should not occupy a Hikari connection for the full AI generation time.
@@ -58,7 +58,7 @@ For release gates, correlate these with:
 - `gaji.ai.chat.generation.available`
 - `gaji.ai.chat.generation.saturated`
 - chat p50/p95/p99 latency
-- FastAPI provider elapsed time
+- Spring Boot provider elapsed time
 - RAG fallback rate
 - AI chat 503 saturation count
 - Gemini quota/rate-limit errors
@@ -68,7 +68,7 @@ For release gates, correlate these with:
 Run the provider-backed chat gate only when Gemini keys and quota are intentionally available.
 
 ```bash
-cd /Users/yeongjae/gaji/gajiAI
+cd /Users/yeongjae/gaji/gajiBE
 
 python scripts/run_chat_release_gate.py \
   --base-url http://localhost:8000 \
@@ -115,5 +115,5 @@ Then tune from the gate:
 ## Residual Work
 
 - Add dashboard panels for Hikari pending/timeouts and AI chat saturation.
-- Add a CI/manual workflow that runs the 5/20/50 gate against a seeded environment.
-- Run the provider-backed chat release gate with `GAJI_CHAT_GATE_TRANSPORT=stream` and record first-delta/p95 latency from a seeded environment.
+- The CI/manual workflow now runs the 5/20/50 provider-backed chat gate when `rag-mvp-release-gates` is manually dispatched with provider gates enabled.
+- Run the provider-backed chat release gate with `GAJI_CHAT_GATE_TRANSPORT=stream` and record first-delta/p95 latency from a seeded environment after secrets/quota are provisioned.

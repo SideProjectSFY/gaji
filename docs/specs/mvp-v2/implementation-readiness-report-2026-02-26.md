@@ -91,7 +91,7 @@ Total NFRs: 8
 ### Additional Requirements
 
 - Constraints/assumptions: migration-focused scope, no full business redesign, no full historical rewrite.
-- Integration requirements: Spring token capability, Next.js route handlers, AI token verification compatibility, PandaCSS/Park UI integration.
+- Integration requirements: Spring token capability, Next.js route handlers, Spring auth validation compatibility, PandaCSS/Park UI integration.
 - Delivery requirements: architecture definition + version-folder separation + implementation artifact outputs.
 
 ### PRD Completeness Assessment
@@ -114,7 +114,7 @@ Total NFRs: 8
 | FR6 | Standardize on PandaCSS + Park UI | `epics-ux-aligned.md` Epic 1 Story 1.1 token/schema + DS setup | Covered |
 | FR7 | Browser calls Next.js route handlers only | `archive/epics-v1-legacy.md` Epic 3 Story 3.1 | Covered |
 | FR8 | Route handlers orchestrate token/downstream calls | `archive/epics-v1-legacy.md` Epic 3 Story 3.1 and Epic 4 Story 4.2 | Covered |
-| FR9 | Spring issues short-lived AI token | `archive/epics-v1-legacy.md` Epic 4 Story 4.1 | Covered |
+| FR9 | Spring issues Service auth token | `archive/epics-v1-legacy.md` Epic 4 Story 4.1 | Covered |
 | FR10 | AI calls include scoped token claims | `archive/epics-v1-legacy.md` Epic 4 Story 4.1 | Covered |
 | FR11 | Sensitive credentials remain server-side | `archive/epics-v1-legacy.md` Epic 3 Story 3.1 and Epic 4 Story 4.2 (server-boundary + secure direct AI) | Covered |
 | FR12 | Implementation artifacts stored under `_bmad-output/implementation-artifacts` | Not explicit story acceptance criterion in selected epics docs | MISSING |

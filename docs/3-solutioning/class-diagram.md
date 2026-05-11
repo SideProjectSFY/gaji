@@ -79,8 +79,8 @@ classDiagram
 ```
 
 ## Notes
-- **Novel Content**: The actual text content of novels is stored separately in a Vector Database (VectorDB), not in the relational `Novel` table.
-- **Characters**: Character definitions are also stored in VectorDB. `Conversation` entities reference characters via `characterVectordbId`.
+- **Novel Content**: The actual text content of novels is stored separately in a Vector Database (pgvector), not in the relational `Novel` table.
+- **Characters**: Character definitions are also stored in pgvector. `Conversation` entities reference characters via `characterVectordbId`.
 - **Scenario Hierarchy**: 
     - `RootUserScenario` is a direct modification of a `Novel`.
     - `LeafUserScenario` is a modification of a `RootUserScenario` (Max Depth: 1).

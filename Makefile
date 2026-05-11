@@ -48,7 +48,7 @@ prod:
 	@echo "🚀 Starting production deployment..."
 	@echo "🗄️  Step 1: Stopping old containers (preserving data volumes)..."
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) down 2>/dev/null || true
-	@# Data volumes (postgres, redis, chromadb) are preserved
+	@# Data volumes (postgres, redis, elasticsearch) are preserved
 	@echo ""
 	@echo "📦 Step 2: Starting PostgreSQL first..."
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) up -d postgres
@@ -104,7 +104,7 @@ prod-safe:
 	@echo "🔒 Starting safe production deployment..."
 	@echo "🗄️  Step 1: Stopping old containers (preserving data volumes)..."
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) down 2>/dev/null || true
-	@# Data volumes (postgres, redis, chromadb) are preserved
+	@# Data volumes (postgres, redis, elasticsearch) are preserved
 	@echo ""
 	@echo "📥 Step 2: Pre-pulling all base images..."
 	@$(MAKE) -s prod-pull-only
@@ -121,7 +121,6 @@ prod-safe:
 	@echo ""
 	@echo "🏗️  Step 5: Building services one by one..."
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) build --no-cache backend || echo "⚠️  Backend build failed"
-	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) build --no-cache ai-service || echo "⚠️  AI Service build failed"
 	@docker compose --env-file $(ENV_PROD_FILE) -f $(COMPOSE_PROD) build --no-cache monitor || echo "⚠️  Monitor build failed"
 	@echo ""
 	@echo "🚀 Step 6: Starting all services..."
@@ -146,11 +145,11 @@ prod-pull-only:
 	@echo "Pulling ghcr.io/astral-sh/uv:latest..."
 	@timeout 120 docker pull ghcr.io/astral-sh/uv:latest --platform linux/amd64 2>&1 || echo "⚠️  Failed: uv"
 	@sleep 2
-	@echo "Pulling chromadb/chroma:latest..."
-	@timeout 120 docker pull chromadb/chroma:latest --platform linux/amd64 2>&1 || echo "⚠️  Failed: chromadb"
+	@echo "Pulling docker.elastic.co/elasticsearch/elasticsearch:8.16.1..."
+	@timeout 120 docker pull docker.elastic.co/elasticsearch/elasticsearch:8.16.1 --platform linux/amd64 2>&1 || echo "⚠️  Failed: elasticsearch"
 	@sleep 2
-	@echo "Pulling postgres:15-alpine..."
-	@timeout 120 docker pull postgres:15-alpine --platform linux/amd64 2>&1 || echo "⚠️  Failed: postgres"
+	@echo "Pulling pgvector/pgvector:pg15..."
+	@timeout 120 docker pull pgvector/pgvector:pg15 --platform linux/amd64 2>&1 || echo "⚠️  Failed: pgvector"
 	@sleep 2
 	@echo "Pulling redis:7-alpine..."
 	@timeout 120 docker pull redis:7-alpine --platform linux/amd64 2>&1 || echo "⚠️  Failed: redis"

@@ -66,7 +66,7 @@ The frontend can ignore these fields safely, but QA and observability tools can 
 
 New script:
 
-- `gajiAI/scripts/run_chat_release_gate.py`
+- `gajiBE/scripts/run_chat_release_gate.py`
 
 It validates:
 
@@ -95,10 +95,10 @@ python scripts/run_chat_release_gate.py \
 
 Updated:
 
-- `gajiAI/app/services/direct_chat_generation_service.py`
-- `gajiAI/app/routers/direct_chat.py`
-- `gajiAI/app/services/api_key_manager.py`
-- `gajiAI/app/config/settings.py`
+- `gajiBE/app/services/direct_chat_generation_service.py`
+- `gajiBE/app/routers/direct_chat.py`
+- `gajiBE/app/services/api_key_manager.py`
+- `gajiBE/app/config/settings.py`
 
 Changes:
 
@@ -106,7 +106,7 @@ Changes:
 - retry attempts scale with configured key count
 - final error now distinguishes quota exhaustion from retryable provider failure
 - direct chat logs include a bounded error message for diagnosis
-- if RAG retrieval succeeds but generation fails, FastAPI returns a safe assistant fallback with:
+- if RAG retrieval succeeds but generation fails, Spring Boot returns a safe assistant fallback with:
   - `provider=fallback`
   - `grounding_status=fallback_ungrounded`
   - `fallback_used=true`
@@ -120,7 +120,7 @@ Automated tests:
 
 | Area | Command | Result |
 | --- | --- | --- |
-| AI service | `/tmp/gaji-ai-test-venv/bin/python -m pytest -o addopts='' tests` | 64 passed |
+| Spring RAG module | `/tmp/gajiBE-test-venv/bin/python -m pytest -o addopts='' tests` | 64 passed |
 | Spring API app | `./gradlew :apps:api-app:test` | BUILD SUCCESSFUL |
 
 Migration checks:
@@ -139,9 +139,9 @@ Live DB checks after final smoke:
 
 Runtime provider checks after adding the current preferred Gemini key:
 
-- AI service was recreated so `gajiAI/.env` env-file changes were loaded by Docker.
+- Spring RAG module was recreated so `gajiBE/.env` env-file changes were loaded by Docker.
 - Runtime key manager sees 6 configured Gemini keys and restricts the active local test pool to preferred key index 6.
-- `VISION_PROVIDER_CODE=gemini` and `VISION_MODEL_NAME=gemini-2.5-flash` are visible inside `gaji-ai-service`.
+- `VISION_PROVIDER_CODE=gemini` and `VISION_MODEL_NAME=gemini-2.5-flash` are visible inside `backend service`.
 - Text generation probe against `gemini-2.5-flash`: PASS.
 - Text generation fallback probe against `gemini-2.5-flash-lite`: PASS.
 - Vision/multimodal probe with a 1x1 red PNG against `gemini-2.5-flash`: PASS, returned `Red` in 4468.0 ms.
@@ -242,7 +242,7 @@ Recommended next action:
 
 ## Preferred Key Gate Re-Run
 
-The current preferred key was stored in `gajiAI/.env` without committing key material, then `gaji-ai-service` was recreated so Docker reloaded the env-file.
+The current preferred key was stored in `gajiBE/.env` without committing key material, then `backend service` was recreated so Docker reloaded the env-file.
 
 Small smoke:
 

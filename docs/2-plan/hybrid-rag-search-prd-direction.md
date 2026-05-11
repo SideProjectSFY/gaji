@@ -24,7 +24,7 @@ This direction is designed to cover four target competency areas:
 | Target competency | How this PRD should demonstrate it |
 | --- | --- |
 | LLM-based service or RAG architecture | Retrieved novel passages are injected into character/scenario chat prompts through a controlled RAG pipeline. |
-| Text embedding and vector search | Novel chunks are embedded and searched through ChromaDB or a compatible VectorDB collection. |
+| Text embedding and vector search | Novel chunks are embedded and searched through pgvector or a compatible pgvector collection. |
 | Elasticsearch search system design and operation | Novel chunks are also indexed into Elasticsearch for BM25 keyword search, filtering, and search observability. |
 | Retrieval quality or ranking optimization | BM25, vector, and hybrid retrieval modes are compared with Hit@k, Recall@k, MRR, nDCG, and negative-query false positives. |
 
@@ -33,17 +33,17 @@ This direction is designed to cover four target competency areas:
 Gaji already has a multi-service direction:
 
 - Spring Boot is responsible for metadata, user data, conversation state, and AI-token issuance.
-- FastAPI is responsible for AI, RAG, embeddings, novel ingestion, and VectorDB access.
+- Spring Boot is responsible for AI, RAG, embeddings, novel ingestion, and pgvector access.
 - PostgreSQL stores relational metadata.
-- VectorDB stores novel content, embeddings, and AI-derived semantic data.
-- The current v1 frontend AI path uses a Next.js server route as the browser boundary and Spring Boot as the token/auth metadata service.
+- pgvector stores novel content, embeddings, and AI-derived semantic data.
+- The current frontend AI path uses a Next.js server route as the browser boundary and Spring Boot as the authenticated AI/RAG runtime.
 
-The current AI service already contains early semantic search and VectorDB components:
+The current Spring AI/RAG implementation already contains semantic search and retrieval components:
 
-- `gajiAI/app/routers/semantic_search.py`
-- `gajiAI/app/services/vectordb_client.py`
-- `gajiAI/app/services/google_file_search_service.py`
-- `docker-compose.dev.yml` includes ChromaDB, Redis, PostgreSQL, backend, and AI service containers.
+- `gajiBE/domains/ai-domain/src/main/java/com/gaji/ai/application/AiChatCompletionService.java`
+- `gajiBE/domains/ai-domain/src/main/java/com/gaji/ai/application/AiChatProxyService.java`
+- `gajiBE/domains/chat-domain/src/main/java/com/gaji/chat/application/MessageService.java`
+- `docker-compose.dev.yml` includes PostgreSQL with pgvector, Redis, Elasticsearch, backend, and monitor services.
 
 The new PRD should extend this foundation rather than replace it.
 
@@ -53,49 +53,49 @@ This PRD must start by removing ambiguity in the current repo shape.
 
 Current implementation facts:
 
-- The semantic search and VectorDB implementation candidates live under `gajiAI/app`.
-- The current development Compose AI service builds `gajiAI/rag-chatbot_test`.
-- The current frontend v1 architecture routes learner AI traffic through a Next.js server route that obtains a short-lived Spring-issued AI token before calling FastAPI.
-- Some legacy Spring proxy routes and FastAPI legacy routes still exist.
+- Semantic search, Gemini generation, and hybrid RAG composition live in `gajiBE`.
+- The current development Compose stack runs the Spring backend directly; there is no separate AI runtime in the canonical path.
+- The current frontend architecture routes learner AI traffic through a Next.js server route before calling Spring Boot.
+- Some compatibility method names still use proxy-oriented naming, but they delegate locally inside Spring.
 
 Implementation decision for this PRD:
 
-1. The canonical AI implementation target for hybrid retrieval is `gajiAI/app`.
-2. Before hybrid search implementation begins, local Compose must run the same FastAPI app that owns hybrid retrieval. Either update `docker-compose.dev.yml` to build `gajiAI/app`, or explicitly consolidate the hybrid modules into the active `rag-chatbot_test` app. The PRD must pick one; the recommended choice is `gajiAI/app`.
+1. The canonical AI implementation target for hybrid retrieval is `gajiBE`.
+2. Local Compose must run the same Spring Boot app that owns hybrid retrieval.
 3. The first learner-facing integration path is:
 
 ```text
 Browser
   -> Next.js route handler
     -> Spring Boot AI-token endpoint
-      -> FastAPI /v1/chat/completions
+      -> Spring Boot /api/v1/ai/chat/completions
         -> Hybrid retrieval
         -> RAG prompt assembly
         -> LLM response
 ```
 
-4. Spring Boot remains the owner of auth, user/session state, PostgreSQL metadata, and token issuance. It must not directly query VectorDB or Elasticsearch.
+4. Spring Boot remains the owner of auth, user/session state, PostgreSQL metadata, and token issuance. It must not directly query pgvector or Elasticsearch.
 5. New Spring Boot AI/search proxy endpoints are out of scope for the MVP unless Spring security is first changed so debug/search APIs are not publicly permitted.
 6. Gemini File Search remains a legacy/experimental fallback for this PRD. It is not the primary retrieval path, and it should not be used to prove hybrid retrieval metrics.
 
 Canonical app migration checklist:
 
-- `docker-compose.dev.yml` builds and mounts `gajiAI/app`, not `gajiAI/rag-chatbot_test`, for the AI service used by this PRD.
-- The active FastAPI app registers:
-  - `/v1/chat/completions`
-  - `/v1/rag/search/passages`
-  - `/v1/rag/search/evaluate`
-  - `/v1/rag/index/novels/{novel_id}`
+- `docker-compose.dev.yml` builds and mounts `gajiBE/app`, not `gajiBE/rag-chatbot_test`, for the Spring RAG module used by this PRD.
+- The active Spring Boot app registers:
+  - `/api/v1/ai/chat/completions`
+  - `Spring pgvector/Elasticsearch search`
+  - `RAG release evaluation`
+  - `RAG ingestion`
   - `/health`
 - JWT middleware supports both learner chat scope and developer/admin RAG scopes.
-- Environment variables are documented for `CHROMADB_*`, `ELASTICSEARCH_URL`, embedding model config, Spring Boot base URL, Redis/Celery, and AI-token verification.
-- VectorDB client wiring must use the Docker ChromaDB HTTP service in Compose, not a local-only persistent path, when running through `docker-compose.dev.yml`.
-- Healthcheck verifies FastAPI process health and dependency readiness for ChromaDB and Elasticsearch.
+- Environment variables are documented for `CHROMADB_*`, `ELASTICSEARCH_URL`, embedding model config, Spring Boot base URL, Redis/Spring task execution, and AI-token verification.
+- pgvector client wiring must use the Docker pgvector HTTP service in Compose, not a local-only persistent path, when running through `docker-compose.dev.yml`.
+- Healthcheck verifies Spring Boot process health and dependency readiness for pgvector and Elasticsearch.
 - Legacy routes remain untouched unless the PRD explicitly routes them to the same hybrid retrieval layer.
 
 ### Canonical Identifier Contract
 
-Hybrid retrieval depends on exact joins between VectorDB and Elasticsearch results. The PRD must define identifiers before implementation.
+Hybrid retrieval depends on exact joins between pgvector and Elasticsearch results. The PRD must define identifiers before implementation.
 
 Canonical IDs:
 
@@ -115,7 +115,7 @@ novel:{novel_id}:chunker:{chunker_version}:chapter:{chapter_slug}:chunk:{chunk_i
 
 Rules:
 
-- The same `passage_id` must be written to VectorDB and Elasticsearch.
+- The same `passage_id` must be written to pgvector and Elasticsearch.
 - `passage_id` must remain stable across re-indexes when the source text and chunker version are unchanged.
 - If source text, cleaning rules, or chunking rules change, the system must create a new passage manifest and either rebuild both indexes atomically or mark the old manifest as superseded.
 - API requests must not accept ambiguous `uuid-or-gutenberg-id` values. Public/internal APIs use `novel_id`; `source_novel_id` is a filter/debug metadata field only.
@@ -199,8 +199,8 @@ The feature is successful if:
 
 ### In Scope
 
-1. One canonical FastAPI implementation target for hybrid retrieval.
-2. Novel passage indexing into both VectorDB and Elasticsearch.
+1. One canonical Spring Boot implementation target for hybrid retrieval.
+2. Novel passage indexing into both pgvector and Elasticsearch.
 3. Query-time retrieval using three modes:
    - `vector`
    - `bm25`
@@ -262,7 +262,7 @@ Reviewer outcome:
 ### Journey 1: Index a Novel for Hybrid Retrieval
 
 1. Admin or ingestion job selects a novel.
-2. FastAPI loads cleaned novel text.
+2. Spring Boot loads cleaned novel text.
 3. Text is split into stable chunks.
 4. Each chunk receives metadata:
    - `passage_id`
@@ -279,34 +279,34 @@ Reviewer outcome:
    - `character_names`
    - `event_ids`
    - `location_ids`
-5. FastAPI generates embeddings for each chunk.
-6. FastAPI stores embeddings and text in VectorDB.
-7. FastAPI indexes the same chunk into Elasticsearch.
+5. Spring Boot generates embeddings for each chunk.
+6. Spring Boot stores embeddings and text in pgvector.
+7. Spring Boot indexes the same chunk into Elasticsearch.
 8. Indexing status is reported back to Spring Boot metadata when the novel metadata record exists.
 
 ### Journey 2: Run a Hybrid Search
 
 1. Developer sends a query with `mode=hybrid`.
-2. FastAPI embeds the query.
-3. FastAPI runs vector search against ChromaDB.
-4. FastAPI runs BM25 search against Elasticsearch.
-5. FastAPI fuses both ranked lists.
-6. FastAPI returns top-k passages with score breakdown.
+2. Spring Boot embeds the query.
+3. Spring Boot runs vector search against pgvector.
+4. Spring Boot runs BM25 search against Elasticsearch.
+5. Spring Boot fuses both ranked lists.
+6. Spring Boot returns top-k passages with score breakdown.
 
 ### Journey 3: Use Hybrid Results in RAG Chat (MVP-B Follow-Up)
 
 1. User sends a message in a character/scenario conversation.
-2. Next.js route handler obtains a short-lived AI token from Spring Boot.
-3. Next.js calls FastAPI `/v1/chat/completions` with the token and conversation payload.
-4. FastAPI validates token claims and conversation-bound permissions.
-5. FastAPI builds a retrieval query from:
+2. Next.js route handler obtains a Service auth token from Spring Boot.
+3. Next.js calls Spring Boot `/api/v1/ai/chat/completions` with the token and conversation payload.
+4. Spring Boot validates token claims and conversation-bound permissions.
+5. Spring Boot builds a retrieval query from:
    - user message
    - active novel
    - scenario context
    - character identity
    - recent conversation summary
-6. FastAPI retrieves hybrid top-k passages.
-7. FastAPI assembles prompt context.
+6. Spring Boot retrieves hybrid top-k passages.
+7. Spring Boot assembles prompt context.
 8. LLM generates a grounded response.
 9. The response and used context metadata are saved or logged for debugging.
 
@@ -355,19 +355,19 @@ Direction:
   - `embedding_dimension=768`
   - passage `embedding_task_type=RETRIEVAL_DOCUMENT`
   - query `embedding_task_type=RETRIEVAL_QUERY`
-- Any embedding model ID change, dimension change, task type change, or embedding preprocessing change requires a new passage manifest and full VectorDB re-index.
-- Embedding dimension must match existing VectorDB collection expectations.
+- Any embedding model ID change, dimension change, task type change, or embedding preprocessing change requires a new passage manifest and full pgvector re-index.
+- Embedding dimension must match existing pgvector collection expectations.
 - Batch embedding must be supported for ingestion.
 - Query embedding latency must be measured.
 
 Acceptance criteria:
 
-- Passage embeddings are stored in VectorDB.
+- Passage embeddings are stored in pgvector.
 - Query embedding time is returned in debug metadata.
 - Embedding failures are retried or marked as failed with clear error state.
 - Evaluation output records `embedding_model_id`, `embedding_dimension`, `embedding_task_type`, and `embedding_config_hash`.
 
-### FR3. VectorDB Search
+### FR3. pgvector Search
 
 The system must support semantic vector search over novel passages.
 
@@ -375,7 +375,7 @@ Direction:
 
 - Continue using `novel_passages` as the primary passage collection.
 - Support filters by `novel_id`, `chapter`, and optionally character/location/event metadata.
-- Return raw VectorDB distance plus normalized similarity score when the distance metric supports deterministic normalization.
+- Return raw pgvector distance plus normalized similarity score when the distance metric supports deterministic normalization.
 
 Acceptance criteria:
 
@@ -634,7 +634,7 @@ Latency protocol:
 - Measure both:
   - single-request local latency
   - concurrent latency with 5 parallel search requests
-- Record local machine profile, Docker image versions, embedding model version, Elasticsearch mapping version, VectorDB collection name, RRF `k`, commit SHA, and whether caches were warm or cold.
+- Record local machine profile, Docker image versions, embedding model version, Elasticsearch mapping version, pgvector collection name, RRF `k`, commit SHA, and whether caches were warm or cold.
 - Report timeout/error rate alongside p50/p95.
 - Evaluation execution must not block `/health` or dependency readiness checks while long-running mode comparisons are active.
 - Query embedding calls must use an explicit request timeout and surface provider quota/rate-limit failures as release-gate failures, not silent fallbacks.
@@ -754,23 +754,23 @@ Acceptance criteria:
 
 ## 8. API Direction
 
-### FastAPI APIs
+### Spring Boot APIs
 
 ```text
-POST /v1/rag/index/novels/{novel_id}
-POST /v1/rag/search/passages
-POST /v1/rag/search/evaluate
-POST /v1/rag/chat/preview
-POST /v1/chat/completions
+POST RAG ingestion
+POST Spring pgvector/Elasticsearch search
+POST RAG release evaluation
+POST /api/v1/ai/chat/completions
+POST /api/v1/ai/chat/completions
 ```
 
-FastAPI API rules:
+Spring Boot API rules:
 
-- MVP-A implemented retrieval endpoints are `/v1/rag/index/novels/{novel_id}`, `/v1/rag/search/passages`, and `/v1/rag/search/evaluate`.
-- `/v1/chat/completions` must keep its existing behavior in MVP-A; hybrid learner chat integration is MVP-B.
-- `/v1/rag/*` endpoints are developer/internal retrieval endpoints.
-- All non-health FastAPI endpoints must require a valid AI broker JWT.
-- Local Compose must pass the same `JWT_SECRET` to Spring Boot and FastAPI so Spring-issued broker tokens validate in FastAPI.
+- MVP-A implemented retrieval endpoints are `RAG ingestion`, `Spring pgvector/Elasticsearch search`, and `RAG release evaluation`.
+- `/api/v1/ai/chat/completions` must keep its existing behavior in MVP-A; hybrid learner chat integration is MVP-B.
+- Spring RAG endpoints endpoints are developer/internal retrieval endpoints.
+- All non-health Spring Boot endpoints must require a valid Spring auth JWT.
+- Local Compose must pass the same `JWT_SECRET` to Spring Boot and Spring Boot so Spring-issued broker tokens validate in Spring Boot.
 - `rag:read` search requests must match `body.novel_id` against the broker token `novel_ids` claim unless the token has `ADMIN` or `DEVELOPER` role.
 - `rag:debug`, `rag:evaluate`, and `rag:index` require both the matching scope and an `ADMIN` or `DEVELOPER` role claim.
 - `include_text=true` is a debug capability and requires `rag:debug` plus `ADMIN` or `DEVELOPER` role.
@@ -822,7 +822,7 @@ Rules:
 
 - `conversation_id`, `novel_id`, and `message` are required for learner chat.
 - `scenario_id` and `character_id` are required when the conversation is scenario/character-bound.
-- FastAPI must validate token ownership claims before using conversation-bound data.
+- Spring Boot must validate token ownership claims before using conversation-bound data.
 - `retrieval_trace` is always logged internally. It is returned to the caller only when authorized and sanitized.
 
 ### Next.js Server Route APIs
@@ -837,15 +837,15 @@ POST /api/dev/rag-evaluate
 Next.js route rules:
 
 - Browser calls only Next.js `/api/*` routes for developer UI actions.
-- Next.js obtains the short-lived AI token from Spring Boot.
-- Next.js forwards the request to FastAPI with the AI token.
+- Next.js obtains the Service auth token from Spring Boot.
+- Next.js forwards the request to Spring Boot with the Service auth token.
 - Next.js sanitizes debug output before returning it to the browser.
 
 ### Spring Boot APIs
 
 Spring Boot remains required for:
 
-- issuing short-lived AI broker tokens
+- issuing short-lived Spring auth tokens
 - validating user/session state
 - serving PostgreSQL metadata
 - receiving ingestion status callbacks when needed
@@ -876,12 +876,12 @@ New Spring Boot AI/search proxy APIs are not part of the MVP. If the project cho
 | Mode | Behavior | Main use |
 | --- | --- | --- |
 | `bm25` | Elasticsearch only | Exact phrase, named entity, keyword-heavy queries |
-| `vector` | VectorDB only | Semantic, paraphrased, conceptual queries |
-| `hybrid` | BM25 + VectorDB + fusion | Default for RAG context |
+| `vector` | pgvector only | Semantic, paraphrased, conceptual queries |
+| `hybrid` | BM25 + pgvector + fusion | Default for RAG context |
 
 ### Evaluation Response Contract
 
-`POST /v1/rag/search/evaluate` writes the full JSON and Markdown reports to disk and returns only a summary payload by default.
+`POST RAG release evaluation` writes the full JSON and Markdown reports to disk and returns only a summary payload by default.
 
 Default response fields:
 
@@ -918,9 +918,9 @@ Rules:
 - The API response must not inline the full `report` object or Markdown body.
 - `include_text=false` is the default for evaluation runs.
 - Text-bearing reports require `rag:debug` in addition to `rag:evaluate` and an `ADMIN` or `DEVELOPER` role.
-- Evaluation `golden_path` must resolve under the FastAPI `evaluation/` directory.
+- Evaluation `golden_path` must resolve under the Spring Boot `evaluation/` directory.
 - Latency measurement must run warmups and at least 100 measured retrieval requests per requested mode, using the configured concurrency.
-- Evaluation requests must execute blocking retrieval work outside the FastAPI event loop so `/health` remains responsive during release-gate runs.
+- Evaluation requests must execute blocking retrieval work outside the Spring Boot event loop so `/health` remains responsive during release-gate runs.
 
 ## 9. Architecture Direction
 
@@ -930,17 +930,17 @@ Rules:
 | --- | --- |
 | Frontend / Next.js | Learner AI route handler, developer debug route, optional RAG inspection screen |
 | Spring Boot | Auth, token issuance, user/conversation metadata, PostgreSQL callbacks |
-| FastAPI | Chunking, embeddings, VectorDB, Elasticsearch, ranking, RAG prompt assembly |
+| Spring Boot | Chunking, embeddings, pgvector, Elasticsearch, ranking, RAG prompt assembly |
 | PostgreSQL | Novel and conversation metadata only |
-| ChromaDB | Passage embeddings and semantic retrieval |
+| pgvector | Passage embeddings and semantic retrieval |
 | Elasticsearch | BM25 passage index and keyword retrieval |
-| Redis/Celery | Async indexing or long-running ingestion tasks |
+| Redis/Spring task execution | Async indexing or long-running ingestion tasks |
 
 ### Data Access Rule
 
-FastAPI owns both VectorDB and Elasticsearch access because both are content retrieval systems used by RAG.
+Spring Boot owns both pgvector and Elasticsearch access because both are content retrieval systems used by RAG.
 
-Spring Boot must not directly query VectorDB or Elasticsearch for this PRD. It issues tokens and owns metadata, while Next.js or internal jobs call FastAPI for AI/search work.
+Spring Boot must not directly query pgvector or Elasticsearch for this PRD. It issues tokens and owns metadata, while Next.js or internal jobs call Spring Boot for AI/search work.
 
 ### Recommended Flow
 
@@ -948,8 +948,8 @@ Spring Boot must not directly query VectorDB or Elasticsearch for this PRD. It i
 Browser
   -> Next.js route handler
     -> Spring Boot AI-token endpoint
-    -> FastAPI
-      -> VectorDB
+    -> Spring Boot
+      -> pgvector
       -> Elasticsearch
       -> RRF fusion
       -> RAG prompt builder
@@ -959,7 +959,7 @@ Browser
 Internal ingestion/status callbacks may still use:
 
 ```text
-FastAPI
+Spring Boot
   -> Spring Boot internal metadata APIs
 ```
 
@@ -968,12 +968,12 @@ FastAPI
 ```mermaid
 sequenceDiagram
     participant Job as Ingestion Job
-    participant AI as FastAPI
+    participant AI as Spring Boot
     participant Spring as Spring Boot
-    participant Chroma as VectorDB
+    participant Chroma as pgvector
     participant ES as Elasticsearch
 
-    Job->>AI: POST /v1/rag/index/novels/{novel_id}
+    Job->>AI: POST RAG ingestion
     AI->>Spring: Fetch or update novel metadata
     AI->>AI: Clean text, chunk, generate passage manifest
     AI->>AI: Generate passage embeddings
@@ -1077,7 +1077,7 @@ Later quantitative checks:
   - `passage_count_elasticsearch`
   - `last_reconciled_at`
 - Re-indexing a novel must use a per-novel lock so two jobs cannot write conflicting manifests.
-- A reconciliation check must compare VectorDB and Elasticsearch passage IDs before a manifest is marked ready.
+- A reconciliation check must compare pgvector and Elasticsearch passage IDs before a manifest is marked ready.
 
 Passage manifest storage:
 
@@ -1093,14 +1093,14 @@ Passage manifest storage:
   - `vector_collection_name`
   - per-store status/count fields
 - The full ordered list of `passage_id` values may be stored as a local/generated JSON artifact for evaluation reproducibility, but PostgreSQL remains the source of readiness state.
-- Passage text and embeddings must remain in VectorDB/Elasticsearch, not PostgreSQL.
+- Passage text and embeddings must remain in pgvector/Elasticsearch, not PostgreSQL.
 
 Fallback direction:
 
 | Failure | Fallback |
 | --- | --- |
 | Elasticsearch unavailable | Use vector search only |
-| VectorDB unavailable | Use BM25 only |
+| pgvector unavailable | Use BM25 only |
 | Embedding API unavailable | Skip vector query and return BM25 if possible |
 | Both search systems unavailable | Fall back to conversation history only and mark `grounding_status=fallback_ungrounded` |
 
@@ -1129,12 +1129,12 @@ Log these fields for search requests:
 ### Security
 
 - Debug search APIs must require authentication and dev/admin authorization scope.
-- Internal FastAPI endpoints must not be publicly callable without an AI broker JWT.
+- Internal Spring Boot endpoints must not be publicly callable without an Spring auth JWT.
 - Prompt/debug metadata must not leak private user data.
 - Spring Boot `/api/v1/ai/**` and `/api/v1/internal/**` permit-all behavior must be changed before any new debug/search proxy endpoint is exposed there.
 - Evaluation reports must not include private user conversation text unless explicitly run in a local/dev-only mode.
 
-AI broker JWT claim contract:
+Spring auth JWT claim contract:
 
 ```json
 {
@@ -1148,7 +1148,7 @@ AI broker JWT claim contract:
   "iat": 1769999700,
   "iss": "gaji-backend",
   "aud": "gaji-ai-direct",
-  "type": "ai_broker"
+  "type": "chat_auth"
 }
 ```
 
@@ -1156,7 +1156,7 @@ Scope rules:
 
 | Scope | Allows |
 | --- | --- |
-| `ai:chat:complete` | Call `/v1/chat/completions` for owned conversations. |
+| `ai:chat:complete` | Call `/api/v1/ai/chat/completions` for owned conversations. |
 | `rag:read` | Run non-debug retrieval for authorized novels/conversations. |
 | `rag:debug` | Receive ranks, scores, timing, and sanitized passage text. |
 | `rag:evaluate` | Run evaluation against local/dev golden sets. |
@@ -1167,7 +1167,7 @@ Ownership rules:
 - Chat requests must match a `conversation_id` allowed by the token.
 - Search requests must match a `novel_id` allowed by the token unless `role` is `ADMIN` or `DEVELOPER`.
 - Debug text, index, and evaluation scopes must be developer/admin-only in all environments.
-- Broker tokens must carry `owner_user_id == sub`; FastAPI rejects tokens where the owner claim does not match.
+- Broker tokens must carry `owner_user_id == sub`; Spring Boot rejects tokens where the owner claim does not match.
 
 ### Maintainability
 
@@ -1184,20 +1184,20 @@ Ownership rules:
 
 Deliverables:
 
-- Pick the canonical FastAPI app for hybrid retrieval and make local Compose run it.
-- Update Compose/Dockerfile wiring so the active AI service exposes the canonical app.
-- Register required routers and healthcheck in the active FastAPI app.
+- Pick the canonical Spring Boot app for hybrid retrieval and make local Compose run it.
+- Update Compose/Dockerfile wiring so the active Spring RAG module exposes the canonical app.
+- Register required routers and healthcheck in the active Spring Boot app.
 - Verify JWT middleware supports learner chat and RAG developer/admin scopes.
 - Document required environment variables.
 - Lock the first learner-facing RAG chat path.
 - Define canonical `novel_id`, `source_novel_id`, `passage_id`, and passage manifest format.
 - Create the initial golden query set and relevance rubric before ranking tuning.
-- Define AI broker JWT scopes for `rag:read`, `rag:debug`, `rag:evaluate`, and `rag:index`.
+- Define Spring auth JWT scopes for `rag:read`, `rag:debug`, `rag:evaluate`, and `rag:index`.
 
 Acceptance:
 
-- `docker-compose.dev.yml` runs the same FastAPI app that will own hybrid retrieval.
-- `/health`, `/v1/chat/completions`, and `/v1/rag/search/passages` are reachable in local dev with expected auth behavior.
+- `docker-compose.dev.yml` runs the same Spring Boot app that will own hybrid retrieval.
+- `/health`, `/api/v1/ai/chat/completions`, and `Spring pgvector/Elasticsearch search` are reachable in local dev with expected auth behavior.
 - A sample passage manifest can be generated for one novel.
 - Evaluation can run in dry-run mode against a locked golden query YAML.
 - Debug/search routes are not exposed through public Spring permit-all paths.
@@ -1221,14 +1221,14 @@ Deliverables:
 Acceptance:
 
 - Elasticsearch starts locally.
-- FastAPI can create and query the passage index.
+- Spring Boot can create and query the passage index.
 - Local ES resource requirements are documented.
 
 ### Slice 2: Dual Passage Indexing
 
 Deliverables:
 
-- Refactor ingestion so each passage is stored in VectorDB and Elasticsearch.
+- Refactor ingestion so each passage is stored in pgvector and Elasticsearch.
 - Ensure stable `passage_id` across both stores.
 - Store passage manifest metadata and per-store readiness state in PostgreSQL.
 - Add re-index endpoint for one novel.
@@ -1236,7 +1236,7 @@ Deliverables:
 Acceptance:
 
 - One novel can be indexed into both stores.
-- Counts match between VectorDB and Elasticsearch for indexed passages.
+- Counts match between pgvector and Elasticsearch for indexed passages.
 - Reconciliation fails the manifest if either store is missing passage IDs.
 
 ### Slice 3: Search Modes
@@ -1271,7 +1271,7 @@ Acceptance:
 
 Deliverables:
 
-- Use hybrid retrieval in the selected Next.js route -> FastAPI `/v1/chat/completions` path.
+- Use hybrid retrieval in the selected Next.js route -> Spring Boot `/api/v1/ai/chat/completions` path.
 - Add prompt context builder changes.
 - Include debug trace for retrieved passages.
 
@@ -1291,7 +1291,7 @@ Deliverables:
 Acceptance:
 
 - A portfolio reviewer can visually inspect search differences.
-- The UI calls server-side Next.js debug routes, not FastAPI directly from the browser.
+- The UI calls server-side Next.js debug routes, not Spring Boot directly from the browser.
 
 ## 14. Proposed PRD Epics
 
@@ -1303,7 +1303,7 @@ Make the implementation path testable before adding new infrastructure.
 
 Representative stories:
 
-- Select and run the canonical FastAPI app for hybrid retrieval in local Compose.
+- Select and run the canonical Spring Boot app for hybrid retrieval in local Compose.
 - Define canonical novel and passage identifiers.
 - Generate a passage manifest for one novel.
 - Create the initial golden query set and relevance rubric.
@@ -1313,26 +1313,26 @@ Representative stories:
 
 Goal:
 
-Create the Elasticsearch-backed keyword retrieval foundation and align it with existing VectorDB passage storage.
+Create the Elasticsearch-backed keyword retrieval foundation and align it with existing pgvector passage storage.
 
 Representative stories:
 
 - Add Elasticsearch to local development Compose.
 - Define `gaji_novel_passages_v1` index mapping.
-- Implement FastAPI Elasticsearch client.
+- Implement Spring Boot Elasticsearch client.
 - Add search health checks and index initialization.
 
 ### Epic 2: Dual Indexing Pipeline
 
 Goal:
 
-Ensure every novel passage can be indexed into both VectorDB and Elasticsearch with the same stable identity.
+Ensure every novel passage can be indexed into both pgvector and Elasticsearch with the same stable identity.
 
 Representative stories:
 
 - Normalize passage chunk metadata.
 - Generate deterministic passage IDs.
-- Store passage embeddings in VectorDB.
+- Store passage embeddings in pgvector.
 - Store passage documents in Elasticsearch.
 - Add per-novel re-index endpoint.
 
@@ -1397,9 +1397,9 @@ The first PRD should avoid becoming too broad. Split delivery into a required fo
 
 Required:
 
-1. Canonical FastAPI app selected and running in local Compose.
+1. Canonical Spring Boot app selected and running in local Compose.
 2. Baseline evidence packet completed for the first MVP novel.
-3. One public-domain novel indexed into both VectorDB and Elasticsearch with one locked passage manifest.
+3. One public-domain novel indexed into both pgvector and Elasticsearch with one locked passage manifest.
 4. Canonical `passage_id` used as both Chroma ID and Elasticsearch `_id`.
 5. `bm25`, `vector`, and `hybrid` search modes.
 6. RRF rank fusion with `k = 60` and explicit candidate sizes.
@@ -1413,7 +1413,7 @@ MVP-A is enough to prove the search architecture and retrieval quality competenc
 
 Required after MVP-A passes:
 
-1. Hybrid results used in the selected Next.js -> FastAPI `/v1/chat/completions` RAG path.
+1. Hybrid results used in the selected Next.js -> Spring Boot `/api/v1/ai/chat/completions` RAG path.
 2. Chat request/response contract implemented with ownership checks.
 3. RAG context assembly follows the token budget, prompt annotation, adjacent-chunk, and prompt-injection rules.
 4. Fallback responses expose `grounding_status`, `fallback_used`, and `fallback_reason`.
@@ -1426,13 +1426,13 @@ MVP-B proves the LLM/RAG service competency and connects retrieval quality to ch
 Suggested resume bullet:
 
 ```text
-Built a hybrid RAG retrieval pipeline for AI-mediated book discussions by combining Elasticsearch BM25 and VectorDB semantic search, applying Reciprocal Rank Fusion, and evaluating retrieval quality with Hit@k, Recall@k, MRR, and nDCG.
+Built a hybrid RAG retrieval pipeline for AI-mediated book discussions by combining Elasticsearch BM25 and pgvector semantic search, applying Reciprocal Rank Fusion, and evaluating retrieval quality with Hit@k, Recall@k, MRR, and nDCG.
 ```
 
 Suggested project explanation:
 
 ```text
-Gaji originally relied on semantic retrieval for novel context. I extended the AI service with an Elasticsearch-backed BM25 index and a hybrid rank fusion layer so character conversations could retrieve both exact textual references and semantic story context. I added an evaluation harness to compare BM25-only, vector-only, and hybrid retrieval, then used the best-ranked passages as LLM grounding context.
+Gaji originally relied on semantic retrieval for novel context. I extended the Spring RAG module with an Elasticsearch-backed BM25 index and a hybrid rank fusion layer so character conversations could retrieve both exact textual references and semantic story context. I added an evaluation harness to compare BM25-only, vector-only, and hybrid retrieval, then used the best-ranked passages as LLM grounding context.
 ```
 
 ## 17. Decision Log for the PRD
@@ -1447,8 +1447,8 @@ The following findings are closed for the MVP PRD.
 | Golden-set labeling owner | Codex may draft candidate labels, but yeongjae is the final label owner and adjudicator. |
 | Labeling process | Create labels before rank tuning; keep at least 20% of queries as holdout; final labels must be manually accepted by yeongjae. |
 | Elasticsearch production stance | Elasticsearch is **development-only through MVP-A**. Production Elasticsearch/OpenSearch is a follow-up architecture decision after retrieval quality is proven. |
-| Active FastAPI app | `gajiAI/app` is the canonical app. `docker-compose.dev.yml` must build/run this app before Slice 1 begins. |
-| Compose/Dockerfile direction | Add or update a `gajiAI/Dockerfile.dev` for the canonical app, mount `./gajiAI:/app`, run the canonical FastAPI entrypoint, and connect to Docker ChromaDB over HTTP plus the local Elasticsearch service. |
+| Active Spring Boot app | `gajiBE/app` is the canonical app. `docker-compose.dev.yml` must build/run this app before Slice 1 begins. |
+| Compose/Dockerfile direction | Add or update a `gajiBE/Dockerfile.dev` for the canonical app, mount `./gajiBE:/app`, run the canonical Spring Boot entrypoint, and connect to Docker pgvector over HTTP plus the local Elasticsearch service. |
 | Embedding model | Use `models/gemini-embedding-001` with 768 output dimensions. Passage embeddings use `RETRIEVAL_DOCUMENT`; query embeddings use `RETRIEVAL_QUERY`. |
 | MVP language/analyzer | MVP-A targets English text only through **Pride and Prejudice**. Elasticsearch uses the `gaji_english_text` analyzer for MVP-A; multilingual/Korean analyzer support is follow-up. |
 | Negative-query behavior | MVP-A returns results for inspection but excludes them from prompt context when insufficient and marks `grounding_status=insufficient_context`; the evaluation reports this through `FalsePositive@k`. |

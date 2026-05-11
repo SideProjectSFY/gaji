@@ -10,9 +10,9 @@ Earlier quota-blocked attempts are kept below as run history.
 
 ## Stack
 
-- FastAPI: `gaji-ai-service`
+- Spring Boot: `backend service`
 - Spring broker E2E instance: `gaji-backend-rag-e2e`, host port `18083`
-- ChromaDB: `gaji-chromadb`
+- pgvector: `gaji-pgvector`
 - Elasticsearch: `gaji-elasticsearch`
 - PostgreSQL: `gaji-postgres`
 - Redis: `gaji-redis`
@@ -49,12 +49,12 @@ Spring broker issued a fresh short-lived token with:
 | Quota metric | `generativelanguage.googleapis.com/embed_content_free_tier_requests` |
 | Quota id | `EmbedContentRequestsPerDayPerProjectPerModel-FreeTier` |
 | Quota value | `1000` |
-| FastAPI container health after failure | `healthy` |
+| Spring Boot container health after failure | `healthy` |
 
 No new Markdown/JSON evaluator artifact was produced by the endpoint because the request failed before report writing. The latest completed artifact remains the BM25 baseline:
 
-- Markdown: `gajiAI/reports/rag/rag_eval_1778125730.md`
-- JSON: `gajiAI/reports/rag/rag_eval_1778125730.json`
+- Markdown: `gajiBE/reports/rag/rag_eval_1778125730.md`
+- JSON: `gajiBE/reports/rag/rag_eval_1778125730.json`
 
 ## Readiness During Re-run
 
@@ -96,7 +96,7 @@ Verification:
 
 Quota probe after hardening:
 
-- endpoint: `POST /v1/rag/search/passages`
+- endpoint: `POST Spring pgvector/Elasticsearch search`
 - mode: `vector`
 - result: `503`
 - elapsed: `0.47s`
@@ -108,7 +108,7 @@ This confirms the current blocker remains provider quota, while the next reset/p
 
 The full all-mode release gate was run again after cache and fail-fast hardening:
 
-- endpoint: `POST /v1/rag/search/evaluate`
+- endpoint: `POST RAG release evaluation`
 - modes: `bm25`, `vector`, `hybrid`
 - warmups: `10`
 - measured samples: `100`
@@ -124,7 +124,7 @@ The fast failure confirms the runner is ready for the next quota reset/provision
 
 A reusable runner was added for the next attempt:
 
-- script: `gajiAI/scripts/run_rag_release_gate.py`
+- script: `gajiBE/scripts/run_rag_release_gate.py`
 - behavior: issues Spring broker tokens, runs a vector preflight quota probe, and only runs the full `bm25/vector/hybrid` gate if preflight passes
 - output: JSON result under the configured output directory
 - default protocol: `10` warmups, `100` measured samples, concurrency `5`, `top_k=10`
@@ -133,9 +133,9 @@ This prevents repeated full-gate attempts from spending time or quota after the 
 
 Runner verification:
 
-- command context: inside `gaji-ai-service`
+- command context: inside `backend service`
 - Spring base URL: `http://gaji-backend-rag-e2e:8080`
-- FastAPI base URL: `http://localhost:8000`
+- Spring Boot base URL: `http://localhost:8000`
 - result: `blocked`
 - preflight status: `503`
 - preflight elapsed: `0.477s`
@@ -144,25 +144,25 @@ Runner verification:
 Next reset/provisioned-key command:
 
 ```bash
-docker exec -i gaji-ai-service python scripts/run_rag_release_gate.py \
+docker exec -i backend service python scripts/run_rag_release_gate.py \
   --spring-base-url http://gaji-backend-rag-e2e:8080 \
-  --fastapi-base-url http://localhost:8000 \
+  --backend-base-url http://localhost:8000 \
   --output-dir /tmp
 ```
 
 ## Env Sync Re-run
 
-`GEMINI_API_KEYS` was already configured, but `GEMINI_API_KEY` was missing for legacy Gemini initialization paths. The first configured key was synchronized into `GEMINI_API_KEY`, and `gaji-ai-service` was force-recreated so Docker loaded the updated environment.
+`GEMINI_API_KEYS` was already configured, but `GEMINI_API_KEY` was missing for legacy Gemini initialization paths. The first configured key was synchronized into `GEMINI_API_KEY`, and `backend service` was force-recreated so Docker loaded the updated environment.
 
 Container env verification:
 
 - `GEMINI_API_KEYS`: `1` configured
 - `GEMINI_API_KEY`: `1` configured
-- FastAPI startup no longer logs `GEMINI_API_KEY environment variable not set`
+- Spring Boot startup no longer logs `GEMINI_API_KEY environment variable not set`
 
 Runner result after env sync:
 
-- command context: inside `gaji-ai-service`
+- command context: inside `backend service`
 - result: `blocked`
 - preflight status: `503`
 - preflight elapsed: `0.439s`
@@ -216,7 +216,7 @@ Verification:
 - `pytest -o addopts='' tests`: `42 passed`
 - `python -m compileall -q app scripts tests`: passed
 - Compose config includes `EMBEDDING_QUERY_CACHE_PATH`
-- `gaji-ai-service` recreated and reports query cache enabled
+- `backend service` recreated and reports query cache enabled
 
 Runner result after quota hardening:
 
@@ -230,7 +230,7 @@ Conclusion: duplicate request waste is fixed, multi-key rotation is fixed, and p
 
 ## Three-key Retry
 
-Two additional Gemini keys were added to `GEMINI_API_KEYS`, and `gaji-ai-service` was force-recreated so Docker loaded the updated environment.
+Two additional Gemini keys were added to `GEMINI_API_KEYS`, and `backend service` was force-recreated so Docker loaded the updated environment.
 
 Container env verification:
 
@@ -249,7 +249,7 @@ Conclusion: multi-key rotation is working. The three configured keys are either 
 
 ## Five-key Successful Run
 
-Two more Gemini keys were added to `GEMINI_API_KEYS`, bringing the configured key count to `5`. `gaji-ai-service` was force-recreated and the runner completed successfully.
+Two more Gemini keys were added to `GEMINI_API_KEYS`, bringing the configured key count to `5`. `backend service` was force-recreated and the runner completed successfully.
 
 Container env verification:
 

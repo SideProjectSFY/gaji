@@ -1,0 +1,22 @@
+{
+  "status": "blocked",
+  "novel_id": "00000000-0000-0000-0000-000000001342",
+  "protocol": {
+    "modes": [
+      "bm25",
+      "vector",
+      "hybrid"
+    ],
+    "top_k": 10,
+    "warmup_queries": 10,
+    "min_latency_samples": 100,
+    "concurrency": 5
+  },
+  "preflight": {
+    "status": "fail",
+    "http_status": 404,
+    "elapsed_seconds": 0.002,
+    "embedding_quota_error": false,
+    "body": "{\"detail\":\"Not Found\"}"
+  }
+}

@@ -18,7 +18,7 @@ The workflow has three layers:
 | AI runner dry run | Pull request and manual | Validates release-gate scripts and configuration shape without Gemini calls |
 | Provider-backed release gates | Manual only | Runs live RAG and streaming chat gates against configured services |
 
-Both AI gate jobs install `gajiAI/requirements.txt` before running tests or gate scripts, so CI exercises the same app dependencies used by the local runner.
+Both AI gate jobs install `gajiBE/requirements.txt` before running tests or gate scripts, so CI exercises the same app dependencies used by the local runner.
 
 ## Manual Provider Gate
 
@@ -36,11 +36,14 @@ Default contract:
 | `rag_warmup_queries` | 10 |
 | `rag_min_latency_samples` | 100 |
 | `rag_concurrency` | 5 |
+| `rag_cache_profiles` | `cold,warm` |
 | `chat_transport` | `stream` |
 | `chat_warmups` | 10 |
 | `chat_measured_requests` | 100 |
 | `chat_concurrency` | 5 |
+| `chat_concurrency_levels` | `5,20,50` |
 | `chat_p95_latency_ms` | 8000 |
+| `chat_max_answer_chars_p95` | 2000 |
 
 ## Local Parity Commands
 
@@ -56,7 +59,7 @@ pnpm run test:e2e:chromium
 ```
 
 ```bash
-cd gajiAI
+cd gajiBE
 pytest -q tests/test_release_gate_runner.py tests/test_chat_release_gate_runner.py tests/test_release_gate_workflow.py
 python scripts/run_rag_release_gate.py --dry-run --output-dir /tmp
 python scripts/run_chat_release_gate.py --dry-run --output-dir /tmp
@@ -65,13 +68,23 @@ python scripts/run_chat_release_gate.py --dry-run --output-dir /tmp
 Provider-backed local parity should be run only against a seeded environment with ignored local `.env` values or shell-provided secrets:
 
 ```bash
-cd gajiAI
+cd gajiBE
 python scripts/run_rag_release_gate.py \
-  --fastapi-base-url "$FASTAPI_BASE_URL" \
+  --backend-base-url "$SPRING_API_BASE_URL" \
   --spring-base-url "$SPRING_BASE_URL" \
   --warmup-queries 10 \
   --min-latency-samples 100 \
   --concurrency 5 \
+  --embedding-cache-profile cold \
+  --output-dir reports/release-gates
+
+python scripts/run_rag_release_gate.py \
+  --backend-base-url "$SPRING_API_BASE_URL" \
+  --spring-base-url "$SPRING_BASE_URL" \
+  --warmup-queries 10 \
+  --min-latency-samples 100 \
+  --concurrency 5 \
+  --embedding-cache-profile warm \
   --output-dir reports/release-gates
 
 python scripts/run_chat_release_gate.py \
@@ -81,6 +94,27 @@ python scripts/run_chat_release_gate.py \
   --measured-requests 100 \
   --concurrency 5 \
   --p95-latency-ms 8000 \
+  --max-answer-chars-p95 2000 \
+  --output-dir reports/release-gates
+
+python scripts/run_chat_release_gate.py \
+  --spring-base-url "$SPRING_BASE_URL" \
+  --transport stream \
+  --warmups 10 \
+  --measured-requests 100 \
+  --concurrency 20 \
+  --p95-latency-ms 8000 \
+  --max-answer-chars-p95 2000 \
+  --output-dir reports/release-gates
+
+python scripts/run_chat_release_gate.py \
+  --spring-base-url "$SPRING_BASE_URL" \
+  --transport stream \
+  --warmups 10 \
+  --measured-requests 100 \
+  --concurrency 50 \
+  --p95-latency-ms 8000 \
+  --max-answer-chars-p95 2000 \
   --output-dir reports/release-gates
 ```
 
@@ -90,7 +124,7 @@ Provider-backed gates require live service URLs, seeded E2E accounts, a seeded c
 
 | Secret | Used By | Notes |
 | --- | --- | --- |
-| `FASTAPI_BASE_URL` | RAG gate | Public or VPN-accessible FastAPI gate target |
+| `SPRING_API_BASE_URL` | RAG gate | Public or VPN-accessible Spring Boot gate target |
 | `SPRING_BASE_URL` | RAG/chat gates | Spring API gateway target |
 | `GAJI_GATE_ADMIN_EMAIL` | RAG gate | Admin/developer account able to issue `rag:evaluate` |
 | `GAJI_GATE_ADMIN_PASSWORD` | RAG gate | Stored only as GitHub secret |
@@ -122,6 +156,7 @@ The chat summary highlights:
 
 - request p50/p95/max
 - first-delta p50/p95/max
+- answer character p50/p95/max
 - fallback count
 - prompt-marker leak count
 - citation text leak count
@@ -146,6 +181,7 @@ Move these from release reports into staging/prod observability dashboards:
 | --- | --- | --- |
 | Chat request p95 | User-perceived completion delay | `< 8000 ms` |
 | Chat first-delta p95 | User-perceived responsiveness | Track trend; current local full gate was `2155.2 ms` |
+| Chat answer character p95 | Keeps generation budget and perceived speed bounded | `< 2000 chars` |
 | Provider elapsed p95 | Separates Gemini latency from app overhead | Track trend |
 | Fallback rate | Grounding/retrieval health | `0` for release gate |
 | `grounding_status != grounded` rate | RAG answer quality | `0` for release gate |
@@ -154,6 +190,8 @@ Move these from release reports into staging/prod observability dashboards:
 | Gemini quota exhaustion count | Provider capacity planning | Alert on first occurrence |
 | `gaji.ai.chat.generation.saturated` | Local concurrency limiter saturation | Alert when non-zero in steady traffic |
 | Hikari active/idle/wait metrics | DB pool pressure during chat writes | Alert before connection starvation |
+
+Provider-backed RAG now runs separate cold and warm embedding-cache profiles. The cold profile clears the query embedding cache before evaluation, so it intentionally consumes provider embedding quota and should only run during manual release gates. The warm profile verifies the steady-state cached path.
 
 ## Failure Triage
 
@@ -164,7 +202,7 @@ Common failure modes:
 | Provider job fails before gates start | Missing GitHub secret | Add the missing secret listed by the validation step |
 | RAG gate is `blocked` with embedding quota | Gemini embedding quota exhausted | Rotate to allowed key pool or pause release |
 | Chat owner requests return 404 | Spring deployment does not expose streaming endpoint | Deploy current backend and rerun smoke |
-| Chat owner requests return 5xx | FastAPI/Gemini failure or Spring proxy failure | Inspect uploaded JSON, Spring logs, FastAPI logs |
+| Chat owner requests return 5xx | Spring Boot/Gemini failure or Spring proxy failure | Inspect uploaded JSON, Spring logs, Spring Boot logs |
 | Other-user probe is not 403 | Conversation ownership regression | Block release |
 | Citation text leak count > 0 | Debug/source exposure regression | Block release |
 | First delta appears only at completion | Streaming regression | Block release for MVP-C UX |

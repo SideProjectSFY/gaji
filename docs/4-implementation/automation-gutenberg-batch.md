@@ -20,7 +20,7 @@ graph LR
         JobLauncher -->|Execute| Job[Migration Job]
         Job -->Step1[Reader: Gutenberg Source]
         Step1 -->Step2[Processor: HTML parsing / Vector Embedding]
-        Step2 -->Step3[Writer: Gaji DB / Vector DB]
+        Step2 -->Step3[Writer: Gaji DB / pgvector]
     end
 ```
 

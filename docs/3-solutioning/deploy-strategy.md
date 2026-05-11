@@ -13,10 +13,10 @@ AWS Free Tier 배포 전략 가이드 (설정 중심)
    │
    ├─ Spring Boot:8080 (내부 포트)
    │ ├─ MyBatis → RDS PostgreSQL
-   │ └─ WebClient → FastAPI:8000
+   │ └─ WebClient → Spring Boot:8000
    │
-   └─ FastAPI:8000 (내부 전용)
-   ├─ ChromaDB (로컬 파일)
+   └─ Spring Boot:8000 (내부 전용)
+   ├─ pgvector (로컬 파일)
    └─ Gemini API (외부)
    왜 이 방식인가?
 
@@ -33,7 +33,7 @@ vCPU: 2코어
 스토리지: 30GB EBS gp3 Free Tier
 
 컨테이너별 메모리 할당:
-서비스메모리 제한용도nginx50MB리버스 프록시, 정적 파일 서빙Spring Boot400MBAPI Gateway, Heap 384MBFastAPI300MBAI 추론, 벡터 검색시스템 예약250MBOS, 로깅, 모니터링총합1000MBt3.micro 한도 내
+서비스메모리 제한용도nginx50MB리버스 프록시, 정적 파일 서빙Spring Boot400MBAPI Gateway, Heap 384MBSpring Boot300MBAI 추론, 벡터 검색시스템 예약250MBOS, 로깅, 모니터링총합1000MBt3.micro 한도 내
 Java 힙 메모리 최적화:
 
 -Xms256m: 초기 힙 256MB
@@ -161,21 +161,21 @@ PostgreSQL은 DDL 트랜잭션 지원 → 자동 롤백
 flyway repair 명령으로 메타데이터 복구
 flyway migrate 재실행
 
-3. Backend ↔ AI Service 통신 모니터링
+3. Backend internal AI/RAG execution monitoring
    3.1 통신 계층 구조
    요청 흐름:
-   Client → nginx → Spring Boot → FastAPI → Gemini API
+   Client → nginx → Spring Boot → Spring Boot → Gemini API
    ↓
    PostgreSQL
    모니터링 포인트:
 
-Spring Boot → FastAPI: 프록시 응답 시간, 에러율
-FastAPI → Gemini API: LLM 호출 지연, 토큰 소비량
+Spring Boot → Spring Boot: 프록시 응답 시간, 에러율
+Spring Boot → Gemini API: LLM 호출 지연, 토큰 소비량
 Spring Boot → PostgreSQL: 쿼리 성능, 커넥션 풀 상태
 
 3.2 Spring Boot WebClient 설정
 타임아웃 설정 계층:
-계층타임아웃목적WebClient Connect5초TCP 연결 수립WebClient Read60초FastAPI 응답 대기 (LLM 고려)WebClient Write10초요청 전송Resilience4j TimeLimiter55초서킷 브레이커 타임아웃nginx proxy_read_timeout70초클라이언트 응답 대기
+계층타임아웃목적WebClient Connect5초TCP 연결 수립WebClient Read60초Spring Boot 응답 대기 (LLM 고려)WebClient Write10초요청 전송Resilience4j TimeLimiter55초서킷 브레이커 타임아웃nginx proxy_read_timeout70초클라이언트 응답 대기
 왜 이렇게 설정하는가?
 
 LLM 응답은 5~30초 소요
@@ -199,7 +199,7 @@ Retry 설정:
 
 Fallback 전략:
 
-FastAPI 장애 시 → "AI 서비스 일시 중단" 메시지 반환
+Spring Boot 장애 시 → "AI 서비스 일시 중단" 메시지 반환
 사용자에게 에러 대신 대체 응답 제공
 
 3.4 Health Check 엔드포인트 설계
@@ -207,20 +207,20 @@ Spring Boot Actuator 엔드포인트:
 
 /actuator/health: 전체 상태 (Liveness + Readiness)
 /actuator/health/liveness: 컨테이너 생존 확인
-/actuator/health/readiness: 의존성 확인 (DB, FastAPI)
+/actuator/health/readiness: 의존성 확인 (DB, Spring Boot)
 
 Custom Health Indicator:
 
-FastAPIHealthIndicator: FastAPI /health 엔드포인트 호출
+Spring BootHealthIndicator: Spring Boot /health 엔드포인트 호출
 타임아웃: 5초
 실패 시: DOWN 상태, 에러 메시지 포함
 
-FastAPI Health Check:
+Spring Boot Health Check:
 
 /health/live: 컨테이너 생존 (항상 200 OK)
-/health/ready: ChromaDB + Gemini API 연결 확인
+/health/ready: pgvector + Gemini API 연결 확인
 
-ChromaDB 연결 실패 → 503 Service Unavailable
+pgvector 연결 실패 → 503 Service Unavailable
 Gemini API 키 검증 실패 → 503
 
 3.5 메트릭 수집 전략
@@ -232,7 +232,7 @@ http.client.requests: WebClient 호출 통계
 백분위수: p50, p95, p99
 SLO: 100ms, 500ms, 1s, 5s, 30s
 
-FastAPI Prometheus 메트릭:
+Spring Boot Prometheus 메트릭:
 
 http_requests_total: 전체 요청 수
 http_request_duration_seconds: 요청 처리 시간
@@ -240,12 +240,12 @@ llm_request_duration_seconds: LLM API 호출 시간 (커스텀)
 llm_request_total: LLM 호출 횟수 (커스텀)
 
 주요 모니터링 지표:
-지표임계값의미p95 응답 시간> 5초95%의 요청이 5초 이내에러율> 5%100개 중 5개 실패서킷 브레이커 OPEN발생 시 알림FastAPI 장애커넥션 풀 사용률> 80%DB 연결 부족 위험
+지표임계값의미p95 응답 시간> 5초95%의 요청이 5초 이내에러율> 5%100개 중 5개 실패서킷 브레이커 OPEN발생 시 알림Spring Boot 장애커넥션 풀 사용률> 80%DB 연결 부족 위험
 
 4. 로깅 전략
    4.1 로그 레벨 및 포맷
    운영 환경 로그 레벨:
-   컴포넌트로그 레벨이유com.yourcompanyINFO비즈니스 로직 추적org.springframeworkWARN프레임워크 경고만org.hibernate.SQLWARN쿼리 로그 비활성화 (성능)io.nettyERROR네트워크 에러만FastAPIINFOAPI 호출 추적
+   컴포넌트로그 레벨이유com.yourcompanyINFO비즈니스 로직 추적org.springframeworkWARN프레임워크 경고만org.hibernate.SQLWARN쿼리 로그 비활성화 (성능)io.nettyERROR네트워크 에러만Spring BootINFOAPI 호출 추적
    JSON 로그 포맷 (권장):
 
 CloudWatch Logs Insights 파싱 용이
@@ -256,7 +256,7 @@ CloudWatch Logs Insights 파싱 용이
 
 timestamp: ISO 8601 형식
 level: INFO, WARN, ERROR
-service: api-gateway, fastapi
+service: api-gateway, backend
 traceId: 분산 추적 ID
 requestId: 요청 고유 ID
 userId: 사용자 ID (있을 경우)
@@ -277,10 +277,10 @@ MDC에 traceId, requestId 저장
 응답 헤더에 X-Trace-Id 추가
 필터 종료 시 MDC.clear()
 
-FastAPI로 traceId 전파:
+Spring Boot로 traceId 전파:
 
-Spring Boot → FastAPI 호출 시 X-Trace-Id 헤더 전달
-FastAPI 미들웨어에서 structlog contextvars에 저장
+Spring Boot → Spring Boot 호출 시 X-Trace-Id 헤더 전달
+Spring Boot 미들웨어에서 structlog contextvars에 저장
 
 4.3 PostgreSQL 로깅 설정
 RDS 파라미터 그룹:
@@ -533,7 +533,7 @@ RDS 데이터베이스 연결 수
 섹션 2: 애플리케이션 지표
 
 Spring Boot 요청 처리 시간 (p50, p95, p99)
-FastAPI 요청 처리 시간
+Spring Boot 요청 처리 시간
 서킷 브레이커 상태 (OPEN/CLOSED)
 에러율 (4xx, 5xx)
 
@@ -555,7 +555,7 @@ Free Tier: 1,000개 SNS 알림/월
 X-Ray 활성화 (선택사항):
 
 Spring Boot: AWS X-Ray SDK 추가
-FastAPI: AWS X-Ray SDK for Python
+Spring Boot: AWS X-Ray SDK for Python
 nginx: X-Ray 데몬 사이드카 컨테이너
 
 추적 가능한 정보:
@@ -612,7 +612,7 @@ CloudWatch Logs 스트림 전략:
 
 서비스별 로그 그룹 분리
 구조: /app/{environment}/{service}
-예시: /app/prod/api-gateway, /app/prod/fastapi
+예시: /app/prod/api-gateway, /app/prod/backend
 
 Logs Insights 저장된 쿼리:
 
@@ -715,6 +715,6 @@ S3 액세스 키
     서비스Free Tier 한도초과 시 비용주의사항EC2 t3.micro750시간/월$0.0104/시간1개 인스턴스 상시 운영 가능RDS db.t3.micro750시간/월$0.017/시간gp2 스토리지만 무료EBS gp330GB$0.08/GB-월gp2는 20GB만 무료S3 스토리지5GB$0.023/GB-월Standard 클래스S3 요청20K GET, 2K PUTPUT $0.005/1000건-CloudFront1TB 전송, 10M 요청$0.085/GB아시아 가격 기준RDS 백업20GB$0.095/GB-월DB 크기만큼 무료CloudWatch Logs5GB 수집, 5GB 저장$0.50/GBJSON 로그 권장CloudWatch 메트릭10개 커스텀 메트릭$0.30/메트릭기본 메트릭은 무료Lambda1M 요청, 400K GB-초$0.20/100만 요청사용 안 함NAT GatewayFree Tier 없음$32.40/월절대 사용 금지
 
 결론
-이 가이드는 AWS Free Tier 한도 내에서 Vue.js, Spring Boot, FastAPI로 구성된 다중 서비스를 운영하기 위한 실전 전략입니다. 단일 EC2에서 Docker Compose를 활용하면 12개월간 완전 무료 운영이 가능하며, NAT Gateway 회피와 gp2 스토리지 사용이 핵심입니다.
-Backend와 AI Service 간 통신은 Resilience4j 서킷 브레이커로 안정성을 확보하고, 구조화된 JSON 로깅으로 CloudWatch에서 분산 추적이 가능합니다. S3 + CloudFront 조합으로 이미지를 효율적으로 관리하며, Zero Spend Budget 설정으로 예상치 못한 비용을 사전에 차단할 수 있습니다.
+이 가이드는 AWS Free Tier 한도 내에서 Vue.js, Spring Boot, Spring Boot로 구성된 다중 서비스를 운영하기 위한 실전 전략입니다. 단일 EC2에서 Docker Compose를 활용하면 12개월간 완전 무료 운영이 가능하며, NAT Gateway 회피와 gp2 스토리지 사용이 핵심입니다.
+Backend internal AI/RAG execution is protected with timeout, fallback, and structured JSON logging so CloudWatch can trace provider and retrieval failures. S3 + CloudFront manages image delivery efficiently, and Zero Spend Budget settings reduce unexpected cost risk.
 가장 중요한 것은 지속적인 모니터링과 Free Tier 사용량 추적입니다. 이 가이드의 전략을 따르면 안정적이고 비용 효율적인 프로덕션 환경을 구축할 수 있습니다.

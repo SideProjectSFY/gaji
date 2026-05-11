@@ -32,7 +32,7 @@
 
 | 기간          | AI Engineer 🤖              | Backend Engineer 💾        | Frontend Engineer 🎨       | 완성도 & 마일스톤        |
 | ------------- | --------------------------- | -------------------------- | -------------------------- | ------------------------ |
-| **Day 1-2**   | FastAPI + Gemini + VectorDB | Spring Boot + PostgreSQL   | Vue.js + PandaCSS 셋업     | 인프라 30% ✓             |
+| **Day 1-2**   | Spring Boot + Gemini + pgvector | Spring Boot + PostgreSQL   | Vue.js + PandaCSS 셋업     | 인프라 30% ✓             |
 | **Day 3-4**   | Data Import (10+ novels)    | Docker + Health Check      | 기본 레이아웃 & 네비게이션 | Epic 0 완성 ✓            |
 | **Day 5-7**   | Prompt Engine + Validation  | Scenario API + Epic 2 지원 | Scenario Creation UI       | Epic 1&2 완성 (AI 70%) ✓ |
 | **Day 8-9**   | Streaming + Context Mgr     | Conversation API + Fork    | Chat UI + Long Polling     | Epic 4 완성 (대화 85%) ✓ |
@@ -89,9 +89,9 @@ gantt
     axisFormat %m/%d
 
     section AI Engineer 🤖
-    0.2 FastAPI & Gemini 셋업        :ai1, 2025-11-16, 1d
-    0.5 Docker (VectorDB+Redis)     :ai2, after ai1, 0.5d
-    0.7 VectorDB 데이터 임포트      :ai3, after ai2, 1d
+    0.2 Spring Boot & Gemini 셋업        :ai1, 2025-11-16, 1d
+    0.5 Docker (pgvector+Redis)     :ai2, after ai1, 0.5d
+    0.7 pgvector 데이터 임포트      :ai3, after ai2, 1d
     2.1 Prompt Engine                :ai4, after ai3, 2d
     1.3 Validation System            :ai5, after ai4, 1d
     2.2 Context Manager (1M token)   :ai6, after ai5, 1d
@@ -168,10 +168,10 @@ gantt
 
 | 시간      | AI Engineer 🤖                                       | Backend Engineer 💾                                    | Frontend Engineer 🎨                              |
 | --------- | ---------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------- |
-| **09-12** | FastAPI 프로젝트 생성<br>Gemini API 설정<br>테스트   | Spring Boot 프로젝트<br>Dependencies 설정<br>구조 생성 | Vue 3 + Vite 프로젝트<br>TypeScript 설정          |
-| **13-15** | VectorDB 클라이언트<br>5개 collection 생성<br>테스트 | WebClient 설정<br>FastAPI proxy 준비<br>CORS 설정      | PandaCSS 설정<br>커스텀 테마<br>codegen           |
+| **09-12** | Spring Boot 프로젝트 생성<br>Gemini API 설정<br>테스트   | Spring Boot 프로젝트<br>Dependencies 설정<br>구조 생성 | Vue 3 + Vite 프로젝트<br>TypeScript 설정          |
+| **13-15** | pgvector 클라이언트<br>5개 collection 생성<br>테스트 | WebClient 설정<br>Spring Boot proxy 준비<br>CORS 설정      | PandaCSS 설정<br>커스텀 테마<br>codegen           |
 | **16-18** | Health check API<br>Port 8000 실행<br>문서화         | Security 기본 설정<br>JWT skeleton<br>Actuator 설정    | PrimeVue 통합<br>컴포넌트 테스트                  |
-| **19-21** | Redis 설정<br>Celery 기본<br>통합 테스트             | Health check<br>/actuator/health<br>통합 테스트        | Axios API client<br>인터셉터 설정<br>Pinia stores |
+| **19-21** | Redis 설정<br>Spring task execution 기본<br>통합 테스트             | Health check<br>/actuator/health<br>통합 테스트        | Axios API client<br>인터셉터 설정<br>Pinia stores |
 
 **체크포인트** (Day 1 종료):
 
@@ -186,16 +186,16 @@ gantt
 
 | 시간      | AI Engineer 🤖                                      | Backend Engineer 💾                                         | Frontend Engineer 🎨                         |
 | --------- | --------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------- |
-| **09-12** | **0.5 FastAPI Dockerfile**<br>ChromaDB service 정의 | **0.3 PostgreSQL 설정**<br>Flyway 마이그레이션<br>13 tables | 기본 레이아웃<br>AppLayout.vue<br>NavBar.vue |
+| **09-12** | **0.5 Spring Boot Dockerfile**<br>pgvector service 정의 | **0.3 PostgreSQL 설정**<br>Flyway 마이그레이션<br>13 tables | 기본 레이아웃<br>AppLayout.vue<br>NavBar.vue |
 | **13-15** | **0.5 Redis service**<br>docker-compose 협업        | **0.5 Spring Dockerfile**<br>docker-compose 통합            | Router 설정<br>기본 페이지<br>404 페이지     |
-| **16-18** | **0.6 Health check 협업**<br>FastAPI → Spring 연동  | **0.6 AI Proxy Controller**<br>WebClient 테스트             | Stores 초기화<br>Auth/User/Scenario          |
+| **16-18** | **0.6 Health check 협업**<br>Spring Boot → Spring 연동  | **0.6 AI Proxy Controller**<br>WebClient 테스트             | Stores 초기화<br>Auth/User/Scenario          |
 | **19-21** | **통합 테스트**<br>`docker-compose up`              | **통합 테스트**<br>6개 서비스 healthy                       | **통합 테스트**<br>API 호출 준비 완료        |
 
 **체크포인트** (Day 2 종료):
 
 - [ ] 🤖💾🎨 **통합**: `docker-compose up` 전체 스택 실행 성공
-- [ ] Health checks: postgres ✓, vectordb ✓, redis ✓, backend ✓, ai-service ✓, frontend ✓
-- [ ] Backend → FastAPI 호출 테스트 통과
+- [ ] Health checks: postgres ✓, pgvector ✓, redis ✓, backend ✓, backend ✓, frontend ✓
+- [ ] Backend → Spring Boot 호출 테스트 통과
 - [ ] Frontend → Backend API 호출 준비 완료
 
 **의존성 노트**:
@@ -210,18 +210,18 @@ gantt
 
 > **참조**: [ENGINEER_WORK_GUIDE.md - Phase 2](./ENGINEER_WORK_GUIDE.md#phase-2-scenario-system-epic-1-day-5-7)
 
-### Day 3: VectorDB Import & Scenario Foundation 시작
+### Day 3: pgvector Import & Scenario Foundation 시작
 
 | 시간      | AI Engineer 🤖                                            | Backend Engineer 💾                                  | Frontend Engineer 🎨                          |
 | --------- | --------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
-| **09-12** | **0.7 Import Script 작성**<br>Dataset 검증<br>Batch logic | Health Check 강화<br>PostgreSQL 체크<br>FastAPI 체크 | 레이아웃 계속<br>반응형 디자인<br>모바일 대응 |
-| **13-15** | **0.7 Import 실행**<br>10+ novels<br>5000+ passages       | AI Proxy Controller<br>FastAPI endpoint proxy        | Scenario 페이지<br>스켈레톤 UI                |
+| **09-12** | **0.7 Import Script 작성**<br>Dataset 검증<br>Batch logic | Health Check 강화<br>PostgreSQL 체크<br>Spring Boot 체크 | 레이아웃 계속<br>반응형 디자인<br>모바일 대응 |
+| **13-15** | **0.7 Import 실행**<br>10+ novels<br>5000+ passages       | AI Proxy Controller<br>Spring Boot endpoint proxy        | Scenario 페이지<br>스켈레톤 UI                |
 | **16-18** | **0.7 Verification**<br>Count 검증<br>Semantic search     | Circuit Breaker<br>Error handling<br>테스트          | Browse Books 페이지<br>카드 레이아웃          |
 | **19-21** | **통합**: Epic 0 완성 체크<br>문서화                      | **통합**: Inter-service 테스트                       | **통합**: UI 준비 완료                        |
 
 **체크포인트** (Day 3 종료 - Epic 0 완성 🎉):
 
-- [ ] 🤖 VectorDB: 10+ novels, 5000+ passages, 100+ characters imported
+- [ ] 🤖 pgvector: 10+ novels, 5000+ passages, 100+ characters imported
 - [ ] 💾 PostgreSQL: Novel metadata 생성 확인
 - [ ] 🎨 Frontend: 기본 레이아웃 완성
 - [ ] **마일스톤**: Epic 0 Definition of Done 모두 통과
@@ -233,7 +233,7 @@ gantt
 | 시간      | AI Engineer 🤖                                         | Backend Engineer 💾                                | Frontend Engineer 🎨                     |
 | --------- | ------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------- |
 | **09-12** | **2.1 Prompt Engine 시작**<br>PromptAdapter 설계       | **1.1 Scenario 도메인**<br>BaseScenario 모델       | **준비**: API 문서 확인<br>DTO 타입 정의 |
-| **13-15** | VectorDB 조회 로직<br>Passage search<br>Character info | **1.1 MyBatis Mapper**<br>CRUD SQL 매핑            | **대기**: Backend API 완성 대기          |
+| **13-15** | pgvector 조회 로직<br>Passage search<br>Character info | **1.1 MyBatis Mapper**<br>CRUD SQL 매핑            | **대기**: Backend API 완성 대기          |
 | **16-18** | Prompt Template<br>3가지 시나리오 타입                 | **1.1 Service Layer**<br>Business logic 구현       | **대기**: 계속                           |
 | **19-21** | **통합**: Prompt 생성 테스트                           | **1.1 REST Controller**<br>POST/GET/PUT/DELETE API | **통합**: API 엔드포인트 확인            |
 
@@ -254,14 +254,14 @@ gantt
 
 | 시간      | AI Engineer 🤖                              | Backend Engineer 💾                           | Frontend Engineer 🎨                           |
 | --------- | ------------------------------------------- | --------------------------------------------- | ---------------------------------------------- |
-| **09-12** | **2.1 Prompt Engine 계속**<br>Template 완성 | **대기**: AI Service 완성 대기                | **1.2 Scenario Modal 시작**<br>PrimeVue Dialog |
+| **09-12** | **2.1 Prompt Engine 계속**<br>Template 완성 | **대기**: Spring RAG module 완성 대기                | **1.2 Scenario Modal 시작**<br>PrimeVue Dialog |
 | **13-15** | Redis 캐싱 (1h TTL)<br>API 엔드포인트       | **대기**: 계속                                | 3가지 타입 선택 UI<br>Character Change 폼      |
-| **16-18** | **통합**: Prompt API 완성<br>테스트         | **1.1 Validation Proxy**<br>FastAPI 연동 준비 | Event/Setting 폼<br>입력 validation            |
+| **16-18** | **통합**: Prompt API 완성<br>테스트         | **1.1 Validation Proxy**<br>Spring Boot 연동 준비 | Event/Setting 폼<br>입력 validation            |
 | **19-21** | **2.1 완성** 🎉<br>문서화                   | **통합**: Proxy 테스트                        | **통합**: API 연동 준비                        |
 
 **체크포인트** (Day 5 종료):
 
-- [ ] 🤖 Story 2.1 완성: Prompt Engine 동작 (VectorDB 조회 <100ms)
+- [ ] 🤖 Story 2.1 완성: Prompt Engine 동작 (pgvector 조회 <100ms)
 - [ ] 💾 Backend: Validation proxy 준비 완료
 - [ ] 🎨 Scenario Creation Modal 70% 완성
 
@@ -292,7 +292,7 @@ gantt
 | **09-12** | **2.2 Context Manager**<br>Token counting           | **준비**: Epic 4 준비<br>Conversation 도메인 설계 | **준비**: Epic 4 준비<br>Chat UI 설계   |
 | **13-15** | 최적화 로직<br>Window sliding                       | **4.1 Conversation 모델**<br>Domain classes       | Chat 컴포넌트 스켈레톤<br>레이아웃 설계 |
 | **16-18** | **2.3 Character Consistency**<br>Trait Extraction   | **4.1 Mapper & Service**<br>CRUD 로직             | Message 리스트 UI<br>입력창 디자인      |
-| **19-21** | VectorDB 저장<br>Triple storage<br>**2.2/2.3 완성** | **4.1 REST Controller**<br>POST /conversations    | **통합**: API 확인<br>내일 작업 계획    |
+| **19-21** | pgvector 저장<br>Triple storage<br>**2.2/2.3 완성** | **4.1 REST Controller**<br>POST /conversations    | **통합**: API 확인<br>내일 작업 계획    |
 
 **체크포인트** (Day 7 종료):
 
@@ -350,7 +350,7 @@ gantt
 
 | 시간      | AI Engineer 🤖                                   | Backend Engineer 💾                              | Frontend Engineer 🎨                  |
 | --------- | ------------------------------------------------ | ------------------------------------------------ | ------------------------------------- |
-| **09-12** | **Epic 3 지원 준비**<br>VectorDB semantic search | **3.1 Book Browse API**<br>페이징 (limit/offset) | **3.1 Book Browse UI**<br>카드 그리드 |
+| **09-12** | **Epic 3 지원 준비**<br>pgvector semantic search | **3.1 Book Browse API**<br>페이징 (limit/offset) | **3.1 Book Browse UI**<br>카드 그리드 |
 | **13-15** | 유사도 검색 튜닝<br>Threshold 0.7                | **3.2 Book Detail API**<br>시나리오 리스트 포함  | 필터링 UI<br>카테고리 선택            |
 | **16-18** | 대기 (Backend 완성 후)                           | **3.3 Scenario Browse API**<br>필터 + 정렬 로직  | **3.2 Book Detail UI**<br>상세 페이지 |
 | **19-21** | **5.1 Tree 데이터 지원**<br>트리 생성 로직 검증  | **5.1 Tree API**<br>대화 노드 JSON 생성          | **통합**: API 연동 테스트             |
@@ -395,7 +395,7 @@ gantt
 | **09-12** | **성능 개선**<br>Embedding 캐싱 | **6.1 Auth System**<br>JWT 생성/검증   | **6.1 Auth UI**<br>로그인/회원가입 폼 |
 | **13-15** | Redis 최적화<br>Hit rate 90%+   | Refresh token<br>Spring Security       | 폼 Validation<br>에러 메시지          |
 | **16-18** | Context Window 메모리 최적화    | **6.1 완성** 🎉<br>Auth middleware     | Protected route<br>Pinia auth store   |
-| **19-21** | VectorDB 최종 튜닝              | **6.2 소셜 공유 API**<br>OG 메타데이터 | **통합**: 로그인 플로우               |
+| **19-21** | pgvector 최종 튜닝              | **6.2 소셜 공유 API**<br>OG 메타데이터 | **통합**: 로그인 플로우               |
 
 **체크포인트** (Day 12 종료):
 
@@ -456,9 +456,9 @@ gantt
 - **Total Hours**: 410시간 (318h 개발 + 92h 통합/테스트)
 - **Epics Completed**: 7개 (Epic 0-6) ✓
 - **Stories Completed**: 41개 ✓
-- **Services Deployed**: 3개 (FastAPI :8000, Spring Boot :8080, Vue.js :3000)
+- **Services Deployed**: 3개 (Spring Boot :8000, Spring Boot :8080, Vue.js :3000)
 - **Performance**: 첫 토큰 <3초, API <500ms, FCP <1.5s ✓
-- **Architecture**: Pattern B (API Gateway) - Hybrid DB (PostgreSQL + VectorDB) ✓
+- **Architecture**: Pattern B (API Gateway) - Hybrid DB (PostgreSQL + pgvector) ✓
 
 ---
 
@@ -489,8 +489,8 @@ gantt
 
 **18:00-18:30**: **통합 테스트** (3명 필수 참여 🔥)
 
-- 🤖 AI Engineer: FastAPI health check → Gemini API 호출 테스트
-- 💾 Backend Engineer: Spring Boot health check → FastAPI proxy 테스트
+- 🤖 AI Engineer: Spring Boot health check → Gemini API 호출 테스트
+- 💾 Backend Engineer: Spring Boot health check → Spring Boot proxy 테스트
 - 🎨 Frontend Engineer: Vue.js dev server → API 통합 테스트
 - **전체 E2E**: 프론트에서 백엔드 거쳐 AI까지 한 플로우 실행
 - 이슈 발견 시 우선순위 결정 (당일 해결 vs 다음날)
@@ -514,7 +514,7 @@ gantt
 
 **AI Engineer 🤖**:
 
-- [ ] FastAPI 서버 :8000 동작 (health check 200 OK)
+- [ ] Spring Boot 서버 :8000 동작 (health check 200 OK)
 - [ ] Gemini API 연동 테스트 완료 (test prompt → response)
 
 **Backend Engineer 💾**:
@@ -530,13 +530,13 @@ gantt
 **Integration 통합**:
 
 - [ ] Docker 3개 서비스 동시 실행 (docker-compose up 성공)
-- [ ] Vue → Spring → FastAPI 전체 플로우 1회 성공
+- [ ] Vue → Spring → Spring Boot 전체 플로우 1회 성공
 
 ---
 
 ### Day 4 Milestone: Epic 0 완성 ✓
 
-- [ ] 🤖 VectorDB import 완료 (5개 collection, 초기 데이터 로드)
+- [ ] 🤖 pgvector import 완료 (5개 collection, 초기 데이터 로드)
 - [ ] 💾 Health check endpoints 전체 동작 (/actuator/health, /ai/health)
 - [ ] 🎨 기본 레이아웃 완성 (Header + Footer + Main)
 - [ ] **Epic 0 Definition of Done** 만족
@@ -609,7 +609,7 @@ gantt
 
 **Day 1-2 (Epic 0)**:
 
-- 🤖 AI Engineer: FastAPI 독립 셋업
+- 🤖 AI Engineer: Spring Boot 독립 셋업
 - 💾 Backend Engineer: Spring Boot 독립 셋업
 - 🎨 Frontend Engineer: Vue.js 독립 셋업
 - **협업**: Day 2 오후 Docker 통합만 함께
@@ -772,12 +772,12 @@ gantt
 
 **Epic 0: Infrastructure (Day 1-4) ✓**
 
-- 🤖 FastAPI :8000 + Gemini API + VectorDB (ChromaDB/Pinecone)
+- 🤖 Spring Boot :8000 + Gemini API + pgvector (pgvector/Elasticsearch)
 - 💾 Spring Boot :8080 + PostgreSQL + Flyway migrations
 - 🎨 Vue.js :3000 + PandaCSS + PrimeVue
 - Docker Compose로 전체 스택 한 번에 실행
 - Health check endpoints 전체 동작 (/actuator/health, /ai/health)
-- VectorDB 5개 collection 초기 데이터 import 완료
+- pgvector 5개 collection 초기 데이터 import 완료
 
 **Epic 1: Scenario System (Day 5-7) ✓**
 
@@ -789,7 +789,7 @@ gantt
 
 **Epic 2: AI Engine (Day 5-7) ✓**
 
-- Prompt Engine: VectorDB semantic search (Threshold 0.7)
+- Prompt Engine: pgvector semantic search (Threshold 0.7)
 - Context Manager: 1M token window, sliding window 최적화
 - Character Consistency: Trait extraction + Triple storage
 - Testing & Refinement Framework: 10개 핵심 시나리오 검증
@@ -830,7 +830,7 @@ gantt
 
 **Performance Targets (Day 14 검증)**:
 
-- 🤖 **AI Service**: 첫 토큰 생성 <3초 (p95), 1000 concurrent 처리
+- 🤖 **Spring RAG module**: 첫 토큰 생성 <3초 (p95), 1000 concurrent 처리
 - 💾 **Backend API**: 응답 시간 <500ms (p95), DB 쿼리 최적화
 - 🎨 **Frontend**: First Contentful Paint <1.5초, Lighthouse 80+
 
@@ -857,7 +857,7 @@ gantt
 
 ### 🚀 Deployment (Day 14)
 
-- **Docker Compose**: 3개 서비스 프로덕션 배포 (FastAPI, Spring Boot, Vue.js)
+- **Docker Compose**: 3개 서비스 프로덕션 배포 (Spring Boot, Spring Boot, Vue.js)
 - **Environment Variables**: 분리된 ENV 관리 (.env.production)
 - **Monitoring**: Grafana + Prometheus 기본 대시보드
 - **Documentation**: README (설치 가이드) + API Docs (Swagger UI) + 아키텍처 문서
@@ -872,7 +872,7 @@ gantt
 
 **Risk 1: Epic 2 (AI Engine) 복잡도 - Day 5-7**
 
-- **위험**: VectorDB semantic search + Context Manager + Character Consistency 동시 개발
+- **위험**: pgvector semantic search + Context Manager + Character Consistency 동시 개발
 - **영향**: Epic 2, 4 지연 → 전체 일정 2-3일 지연
 - **완화 전략**:
   - 🤖 AI Engineer를 가장 숙련된 개발자로 배정
@@ -892,7 +892,7 @@ gantt
 
 **Risk 3: Docker 통합 실패 - Day 2**
 
-- **위험**: 3개 서비스 네트워크 연결 실패 (FastAPI → Spring Boot → Vue.js)
+- **위험**: 3개 서비스 네트워크 연결 실패 (Spring Boot → Spring Boot → Vue.js)
 - **영향**: Day 3 이후 모든 통합 테스트 불가능
 - **완화 전략**:
   - Day 2 오후 전체 팀 Docker 통합에 집중 (4시간 확보)
@@ -973,7 +973,7 @@ gantt
 
 - Frontend: Vue.js 3 + TypeScript + PandaCSS + PrimeVue (:3000)
 - Backend: Spring Boot 3.2 + PostgreSQL 15 + MyBatis (:8080)
-- AI Service: FastAPI + Gemini 2.5 Flash + ChromaDB/Pinecone (:8000, internal)
+- Spring RAG module: Spring Boot + Gemini 2.5 Flash + pgvector/Elasticsearch (:8000, internal)
 
 **개발 방법론**:
 

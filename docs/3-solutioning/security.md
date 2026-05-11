@@ -54,7 +54,7 @@
 | ----------------------- | ------------------------- | ------------ | ------------------- |
 | **Public API**          | REST endpoints            | High         | P0 - Critical       |
 | **User Authentication** | JWT tokens, passwords     | Critical     | P0 - Critical       |
-| **AI Service**          | Local LLM integration     | Medium       | P1 - High           |
+| **Spring AI/RAG layer**        | Local LLM integration     | Medium       | P1 - High           |
 | **Database**            | PostgreSQL with user data | High         | P0 - Critical       |
 | **Frontend**            | Vue.js SPA                | Medium       | P1 - High           |
 | **File Uploads**        | Avatar images             | Medium       | P2 - Medium         |
@@ -295,7 +295,7 @@ CHECK (parent_conversation_id IS NULL OR
        (SELECT depth FROM conversations WHERE id = parent_conversation_id) = 0);
 ```
 
-2. **Circuit Breaker for AI Service** (Resilience4j):
+2. **Circuit Breaker for Spring AI/RAG layer** (Resilience4j):
 
 ```java
 @CircuitBreaker(name = "llm", fallbackMethod = "fallbackResponse")
@@ -351,7 +351,7 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                                   "style-src 'self' 'unsafe-inline'; " +
                                   "img-src 'self' data: https:; " +
                                   "font-src 'self'; " +
-                                  "connect-src 'self' http://localhost:8001;") // FastAPI AI service
+                                  "connect-src 'self' http://localhost:8080;") // Spring backend
             )
             .frameOptions(FrameOptionsConfig::deny) // X-Frame-Options: DENY
             .xssProtection(XssConfig::enable) // X-XSS-Protection: 1; mode=block

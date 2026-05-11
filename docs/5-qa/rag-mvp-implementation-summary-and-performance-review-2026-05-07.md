@@ -36,7 +36,7 @@ These two methods are combined into **hybrid search**, which gives the product b
 
 ### 2. AI Chat That Uses Evidence
 
-When a learner asks a question, the AI service now:
+When a learner asks a question, the Spring RAG module now:
 
 1. Finds relevant novel passages.
 2. Wraps those passages as source material.
@@ -92,8 +92,8 @@ The team added repeatable evaluation scripts and reports for:
 
 ### Services and Storage
 
-- Canonical AI service: `gajiAI/app` FastAPI.
-- Vector search store: ChromaDB.
+- Spring RAG module: `gajiBE/app` Spring Boot.
+- Vector search store: pgvector.
 - Lexical search store: Elasticsearch.
 - Metadata persistence: PostgreSQL through Spring Boot internal APIs.
 - Cache/storage coordination: Redis where needed.
@@ -104,17 +104,17 @@ The team added repeatable evaluation scripts and reports for:
 - MVP novel: `Pride and Prejudice`
 - Source novel ID: `gutenberg:1342`
 - Passage IDs are canonical and manifest-stable.
-- ChromaDB IDs and Elasticsearch `_id` values use the same passage ID.
+- pgvector IDs and Elasticsearch `_id` values use the same passage ID.
 - PostgreSQL stores manifest/readiness metadata, but not passage text or embeddings.
 
 ### Search Modes
 
 Implemented API:
 
-- `POST /v1/rag/index/novels/{novel_id}`
-- `POST /v1/rag/search/passages`
-- `POST /v1/rag/search/evaluate`
-- `POST /v1/rag/sources/passages`
+- `POST RAG ingestion`
+- `POST Spring pgvector/Elasticsearch search`
+- `POST RAG release evaluation`
+- `POST /api/v1/conversations/{id}/messages/{assistantMessageId}/rag-sources`
 
 Search modes:
 
@@ -154,8 +154,8 @@ Implemented learner path:
 ```text
 Frontend chat
   -> Spring conversation endpoint
-  -> AI broker token
-  -> FastAPI /v1/chat/completions
+  -> Spring auth token
+  -> Spring Boot /api/v1/ai/chat/completions
   -> hybrid RAG search
   -> Gemini generation
   -> Spring persists user/assistant messages
@@ -164,7 +164,7 @@ Frontend chat
 
 Important endpoints:
 
-- FastAPI: `POST /v1/chat/completions`
+- Spring Boot: `POST /api/v1/ai/chat/completions`
 - Spring generic AI proxy: `POST /api/v1/ai/chat/completions`
 - Spring learner chat endpoint: `POST /api/v1/conversations/{conversationId}/messages/chat-completion`
 
@@ -229,7 +229,7 @@ Frontend citation click
   -> Spring validates owner/operator
   -> Spring reads persisted citation IDs
   -> Spring issues bounded rag:read broker token
-  -> FastAPI POST /v1/rag/sources/passages
+  -> Spring Boot POST /api/v1/conversations/{id}/messages/{assistantMessageId}/rag-sources
   -> Elasticsearch exact passage lookup
   -> source drawer renders allowed text
 ```
@@ -286,9 +286,9 @@ The clearest product value is trust. Gaji can now claim that AI answers are tied
 The architecture is now correctly layered:
 
 - Spring owns user/conversation metadata and authorization.
-- FastAPI owns retrieval, embeddings, and generation.
+- Spring Boot owns retrieval, embeddings, and generation.
 - PostgreSQL stores metadata only.
-- ChromaDB and Elasticsearch store retrieval indexes.
+- pgvector and Elasticsearch store retrieval indexes.
 
 The highest architectural risk is not search latency; it is operational coupling to synchronous provider generation and provider quota.
 
@@ -447,7 +447,7 @@ Recommended work:
 
 - Monitor candidate pool size and latency as corpus grows.
 - Keep `candidate_k_vector` and `candidate_k_bm25` configurable.
-- Add per-store latency dashboards for ChromaDB and Elasticsearch.
+- Add per-store latency dashboards for pgvector and Elasticsearch.
 - Consider collection/index sharding by novel or corpus group when corpus size grows.
 - Evaluate reranking only after more novels and richer golden sets exist.
 
@@ -460,7 +460,7 @@ Expected impact:
 
 Why it matters:
 
-- Source drawer clicks call Spring and FastAPI for exact passage lookup.
+- Source drawer clicks call Spring and Spring Boot for exact passage lookup.
 - The same assistant message citations may be opened repeatedly.
 
 Recommended work:
@@ -498,7 +498,7 @@ Safe claim:
 
 Safe technical claim:
 
-> The MVP uses a hybrid RAG architecture with FastAPI for AI/RAG, Spring Boot for user/conversation metadata and authorization, ChromaDB for vector search, Elasticsearch for BM25/source lookup, PostgreSQL for metadata persistence, and Gemini for embeddings/generation.
+> The MVP uses a hybrid RAG architecture with Spring Boot for AI/RAG, Spring Boot for user/conversation metadata and authorization, pgvector for vector search, Elasticsearch for BM25/source lookup, PostgreSQL for metadata persistence, and Gemini for embeddings/generation.
 
 Safe quality claim:
 
@@ -536,8 +536,8 @@ Story file:
 - `docs/5-qa/mvp-b-release-gate-2026-05-07.md`
 - `docs/5-qa/mvp-c-rag-chat-observability-2026-05-07.md`
 - `docs/5-qa/mvp-c-citation-source-lookup-2026-05-07.md`
-- `gajiAI/scripts/run_rag_release_gate.py`
-- `gajiAI/scripts/run_chat_release_gate.py`
+- `gajiBE/scripts/run_rag_release_gate.py`
+- `gajiBE/scripts/run_chat_release_gate.py`
 - `gajiFE/e2e/rag-citation-source-drawer.spec.ts`
 - `gajiFE/src/components/chat/ChatMessage.vue`
 - `gajiBE/domains/chat-domain/src/main/java/com/gaji/chat/application/MessageService.java`

@@ -16,7 +16,7 @@
 - [ ] scenarios/edge-cases.spec.ts — should block unauthorized user from forking others conversation
 - [ ] scenarios/edge-cases.spec.ts — should handle network error during scenario creation gracefully
 - [ ] scenarios/edge-cases.spec.ts — should handle network error during conversation fork gracefully
-- [ ] scenarios/edge-cases.spec.ts — should handle network error during VectorDB search gracefully
+- [ ] scenarios/edge-cases.spec.ts — should handle network error during pgvector search gracefully
 - [ ] scenarios/edge-cases.spec.ts — should handle API 500 error during scenario creation
 - [ ] scenarios/edge-cases.spec.ts — should handle timeout during AI response
 - [ ] scenarios/edge-cases.spec.ts — should handle empty search results gracefully
@@ -37,8 +37,8 @@
 - [ ] scenarios/security.spec.ts — should enforce rate limiting on scenario creation
 - [ ] scenarios/security.spec.ts — should enforce rate limiting on conversation forking
 - [ ] scenarios/security.spec.ts — should sanitize HTML in optional fields
-- [ ] scenarios/vectordb-integration.spec.ts — should retrieve relevant scenarios from VectorDB
-- [ ] scenarios/vectordb-integration.spec.ts — should verify scenario embedding on creation
+- [ ] scenarios/pgvector-integration.spec.ts — should retrieve relevant scenarios from pgvector
+- [ ] scenarios/pgvector-integration.spec.ts — should verify scenario embedding on creation
 - [ ] search-infinite-scroll.spec.ts — Books section — infinite scroll loads more items
 - [ ] search-infinite-scroll.spec.ts — Conversations section — infinite scroll loads more items
 - [ ] search-infinite-scroll.spec.ts — All tab — infinite scroll loads more items from all sections
@@ -77,7 +77,7 @@ should block unauthorized access to fork conversation
 should block unauthorized user from forking others conversation
 should handle network error during scenario creation gracefully
 should handle network error during conversation fork gracefully
-should handle network error during VectorDB search gracefully
+should handle network error during pgvector search gracefully
 should handle API 500 error during scenario creation
 should handle timeout during AI response
 should handle empty search results gracefully
@@ -107,8 +107,8 @@ should enforce rate limiting on scenario creation
 should enforce rate limiting on conversation forking
 should sanitize HTML in optional fields
 
-e2e/scenarios/vectordb-integration.spec.ts
-should retrieve relevant scenarios from VectorDB
+e2e/scenarios/pgvector-integration.spec.ts
+should retrieve relevant scenarios from pgvector
 should verify scenario embedding on creation
 
 e2e/search-infinite-scroll.spec.ts

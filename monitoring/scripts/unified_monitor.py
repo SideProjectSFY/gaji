@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 통합 데이터베이스 모니터링 시스템
-PostgreSQL, Redis, ChromaDB의 통합 메트릭 수집
+PostgreSQL, Redis, Elasticsearch의 통합 메트릭 수집
 """
 
 import os
@@ -16,7 +16,7 @@ from logging.handlers import TimedRotatingFileHandler
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import redis
-import chromadb
+import requests
 from mattermost_notifier import MattermostNotifier
 
 # 로그 디렉토리 생성
@@ -52,7 +52,7 @@ class UnifiedMonitor:
         """초기화"""
         self.pg_conn = None
         self.redis_client = None
-        self.chroma_client = None
+        self.elasticsearch_url = os.getenv('ELASTICSEARCH_URL', 'http://elasticsearch:9200').rstrip('/')
         self.notifier = MattermostNotifier()
         self._connect_databases()
     
@@ -86,17 +86,13 @@ class UnifiedMonitor:
             logger.error(f"✗ Redis 연결 실패: {e}")
             self.redis_client = None
         
-        # ChromaDB 연결
+        # Elasticsearch 연결
         try:
-            self.chroma_client = chromadb.HttpClient(
-                host=os.getenv('CHROMADB_HOST', 'chromadb'),
-                port=int(os.getenv('CHROMADB_PORT', 8000))
-            )
-            self.chroma_client.heartbeat()
-            logger.info("✓ ChromaDB 연결 성공")
+            response = requests.get(f"{self.elasticsearch_url}/_cluster/health", timeout=10)
+            response.raise_for_status()
+            logger.info("✓ Elasticsearch 연결 성공")
         except Exception as e:
-            logger.error(f"✗ ChromaDB 연결 실패: {e}")
-            self.chroma_client = None
+            logger.error(f"✗ Elasticsearch 연결 실패: {e}")
     
     def get_postgresql_stats(self) -> Optional[Dict[str, Any]]:
         """PostgreSQL 통계 수집"""
@@ -246,52 +242,41 @@ class UnifiedMonitor:
             logger.error(f"✗ Redis 통계 수집 실패: {e}")
             return None
     
-    def get_chromadb_stats(self) -> Optional[Dict[str, Any]]:
-        """ChromaDB 통계 수집"""
-        if not self.chroma_client:
-            return None
-        
+    def get_elasticsearch_stats(self) -> Optional[Dict[str, Any]]:
+        """Elasticsearch 통계 수집"""
         try:
-            stats = {}
-            
-            # 컬렉션 정보
-            collections = self.chroma_client.list_collections()
-            stats['collections_count'] = len(collections)
-            
-            # 각 컬렉션의 문서 수
-            collection_details = []
+            health = requests.get(f"{self.elasticsearch_url}/_cluster/health", timeout=10).json()
+            indices = requests.get(
+                f"{self.elasticsearch_url}/_cat/indices?format=json&bytes=mb",
+                timeout=10
+            ).json()
+
             total_docs = 0
-            
-            for col in collections:
-                try:
-                    collection = self.chroma_client.get_collection(col.name)
-                    count = collection.count()
-                    total_docs += count
-                    
-                    # 샘플 쿼리 성능 측정
-                    start = time.time()
-                    collection.query(query_texts=["test"], n_results=1)
-                    query_time_ms = (time.time() - start) * 1000
-                    
-                    collection_details.append({
-                        'name': col.name,
-                        'document_count': count,
-                        'avg_query_time_ms': round(query_time_ms, 2)
-                    })
-                except Exception as e:
-                    logger.warning(f"컬렉션 {col.name} 통계 수집 실패: {e}")
-            
-            stats['total_documents'] = total_docs
-            stats['collections'] = collection_details
-            
-            # 예상 메모리 사용량 (벡터당 약 6KB)
-            stats['estimated_memory_mb'] = round((total_docs * 6) / 1024, 2)
-            
-            logger.info("✓ ChromaDB 통계 수집 완료")
-            return stats
-            
+            total_store_mb = 0.0
+            index_details = []
+            for index in indices:
+                docs = int(index.get('docs.count') or 0)
+                store_mb = float(index.get('store.size') or 0)
+                total_docs += docs
+                total_store_mb += store_mb
+                index_details.append({
+                    'name': index.get('index'),
+                    'status': index.get('status'),
+                    'document_count': docs,
+                    'store_mb': round(store_mb, 2)
+                })
+
+            logger.info("✓ Elasticsearch 통계 수집 완료")
+            return {
+                'cluster_status': health.get('status'),
+                'active_shards': health.get('active_shards'),
+                'indices_count': len(index_details),
+                'total_documents': total_docs,
+                'store_mb': round(total_store_mb, 2),
+                'indices': index_details
+            }
         except Exception as e:
-            logger.error(f"✗ ChromaDB 통계 수집 실패: {e}")
+            logger.error(f"✗ Elasticsearch 통계 수집 실패: {e}")
             return None
     
     def analyze_health(self, stats: Dict) -> Dict[str, list]:
@@ -349,20 +334,19 @@ class UnifiedMonitor:
                 errors.append(f"Redis 연결 거부 발생: {rd['rejected_connections']}개")
                 recommendations.append("maxclients 설정 증가 필요")
         
-        # ChromaDB 체크
-        if stats.get('chromadb'):
-            ch = stats['chromadb']
-            
-            if ch['estimated_memory_mb'] > 500:
-                warnings.append(f"ChromaDB 예상 메모리가 큽니다: {ch['estimated_memory_mb']} MB")
-                recommendations.append("벡터 DB를 외부 서비스(Pinecone)로 마이그레이션 고려")
-            
-            # 느린 쿼리 체크
-            for col in ch.get('collections', []):
-                if col['avg_query_time_ms'] > 500:
-                    warnings.append(
-                        f"컬렉션 {col['name']} 쿼리가 느립니다: {col['avg_query_time_ms']} ms"
-                    )
+        # Elasticsearch 체크
+        if stats.get('elasticsearch'):
+            es = stats['elasticsearch']
+
+            if es.get('cluster_status') == 'red':
+                errors.append("Elasticsearch 클러스터 상태가 red입니다")
+                recommendations.append("Elasticsearch shard allocation과 disk watermark를 확인")
+            elif es.get('cluster_status') == 'yellow':
+                warnings.append("Elasticsearch 클러스터 상태가 yellow입니다")
+
+            if es.get('store_mb', 0) > 10240:
+                warnings.append(f"Elasticsearch 저장소 사용량이 큽니다: {es['store_mb']} MB")
+                recommendations.append("오래된 인덱스 정리 또는 rollover 정책 검토")
         
         return {
             'errors': errors,
@@ -380,7 +364,7 @@ class UnifiedMonitor:
             'timestamp': datetime.now().isoformat(),
             'postgresql': self.get_postgresql_stats(),
             'redis': self.get_redis_stats(),
-            'chromadb': self.get_chromadb_stats()
+            'elasticsearch': self.get_elasticsearch_stats()
         }
         
         # 헬스 체크
@@ -464,13 +448,14 @@ class UnifiedMonitor:
             print(f"  연결 수: {rd['connected_clients']}개")
             print(f"  삭제된 키: {rd['evicted_keys']}개")
         
-        # ChromaDB
-        if report['chromadb']:
-            ch = report['chromadb']
-            print(f"\n[ChromaDB]")
-            print(f"  컬렉션 수: {ch['collections_count']}개")
-            print(f"  총 문서: {ch['total_documents']}개")
-            print(f"  예상 메모리: {ch['estimated_memory_mb']} MB")
+        # Elasticsearch
+        if report['elasticsearch']:
+            es = report['elasticsearch']
+            print(f"\n[Elasticsearch]")
+            print(f"  클러스터 상태: {es['cluster_status']}")
+            print(f"  인덱스 수: {es['indices_count']}개")
+            print(f"  총 문서: {es['total_documents']}개")
+            print(f"  저장소 사용량: {es['store_mb']} MB")
         
         # 헬스 체크
         health = report['health']

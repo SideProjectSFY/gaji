@@ -79,7 +79,7 @@ def main():
         # 주요 통계 요약
         pg = report.get('postgresql', {})
         rd = report.get('redis', {})
-        ch = report.get('chromadb', {})
+        es = report.get('elasticsearch', {})
         
         stats_summary = []
         
@@ -89,8 +89,8 @@ def main():
         if rd:
             stats_summary.append(f"**Redis**: 메모리 {rd.get('memory_usage_pct', 0)}%, 캐시 {rd.get('cache_hit_rate_pct', 0)}%")
             
-        if ch:
-            stats_summary.append(f"**ChromaDB**: 컬렉션 {ch.get('collections_count', 0)}개, 문서 {ch.get('total_documents', 0)}개")
+        if es:
+            stats_summary.append(f"**Elasticsearch**: 인덱스 {es.get('indices_count', 0)}개, 문서 {es.get('total_documents', 0)}개")
             
         description = "\n".join(stats_summary)
         

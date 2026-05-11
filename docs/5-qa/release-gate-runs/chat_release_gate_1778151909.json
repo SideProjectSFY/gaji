@@ -1,0 +1,69 @@
+{
+  "status": "fail",
+  "protocol": {
+    "transport": "stream",
+    "warmups": 1,
+    "measured_requests": 2,
+    "concurrency": 1,
+    "p95_latency_ms": 30000.0,
+    "requires_delta_before_completed": true,
+    "records_first_delta_ms": true
+  },
+  "conversation_id": "770e8400-e29b-41d4-a716-446655440001",
+  "forbidden_status": 403,
+  "forbidden_probe": {
+    "index": -1,
+    "status": 403,
+    "elapsed_ms": 4.9,
+    "error": "{\"error\":\"Forbidden\",\"message\":\"Only the conversation owner can send messages\",\"timestamp\":\"2026-05-07T11:05:09.02786692\",\"status\":403}"
+  },
+  "warmup_results": [
+    {
+      "index": 0,
+      "status": 404,
+      "elapsed_ms": 6.5,
+      "transport": "stream",
+      "error": ""
+    }
+  ],
+  "measured_results": [
+    {
+      "index": 0,
+      "status": 404,
+      "elapsed_ms": 5.9,
+      "transport": "stream",
+      "error": ""
+    },
+    {
+      "index": 1,
+      "status": 404,
+      "elapsed_ms": 7.0,
+      "transport": "stream",
+      "error": ""
+    }
+  ],
+  "gate": {
+    "decision": "FAIL",
+    "assertions": {
+      "owner_requests_200": false,
+      "unauthorized_other_user_forbidden": true,
+      "all_grounded": false,
+      "no_fallback_used": true,
+      "citations_present": false,
+      "no_citation_text_leak": true,
+      "no_prompt_marker_revealed": true,
+      "created_at_returned": false,
+      "rag_metadata_id_returned": false,
+      "provider_elapsed_ms_returned": false,
+      "stream_completed_event_present": false,
+      "stream_user_message_event_present": false,
+      "stream_delta_present": false,
+      "stream_delta_before_completed": false,
+      "stream_first_delta_recorded": false,
+      "latency_p95_within_gate": false
+    },
+    "latency": {
+      "count": 0
+    }
+  }
+}

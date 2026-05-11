@@ -549,30 +549,34 @@ DASHBOARD_TEMPLATE = """
                 `;
             }
             
-            // ChromaDB Card
-            if (data.chromadb) {
-                const chroma = data.chromadb;
+            // Elasticsearch Card
+            if (data.elasticsearch) {
+                const es = data.elasticsearch;
                 
                 html += `
                     <div class="card">
                         <div class="card-header">
                             <div class="card-title">
-                                <span class="card-icon">🧠</span>
-                                ChromaDB
+                                <span class="card-icon">🔎</span>
+                                Elasticsearch
                             </div>
-                            ${getStatusBadge(chroma.status)}
+                            ${getStatusBadge(es.status)}
                         </div>
                         <div class="metric">
-                            <span class="metric-label">Collections</span>
-                            <span class="metric-value">${chroma.total_collections}</span>
+                            <span class="metric-label">Cluster</span>
+                            <span class="metric-value">${es.cluster_status}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Indices</span>
+                            <span class="metric-value">${es.indices_count}</span>
                         </div>
                         <div class="metric">
                             <span class="metric-label">Total Documents</span>
-                            <span class="metric-value">${(chroma.total_documents || 0).toLocaleString()}</span>
+                            <span class="metric-value">${(es.total_documents || 0).toLocaleString()}</span>
                         </div>
                         <div class="metric">
-                            <span class="metric-label">Heartbeat</span>
-                            <span class="metric-value good">✓ ${chroma.heartbeat_ms}ms</span>
+                            <span class="metric-label">Store</span>
+                            <span class="metric-value">${es.store_mb} MB</span>
                         </div>
                     </div>
                 `;
@@ -737,45 +741,29 @@ class MonitorDashboard:
             logger.error(f"Redis 메트릭 수집 실패: {e}")
             return {"status": "error", "error": str(e)}
     
-    def get_chromadb_metrics(self) -> Dict[str, Any]:
-        """ChromaDB 메트릭 수집 (HTTP API 사용)"""
+    def get_elasticsearch_metrics(self) -> Dict[str, Any]:
+        """Elasticsearch 메트릭 수집"""
         try:
             import requests
-            
-            chromadb_host = os.getenv('CHROMADB_HOST', 'chromadb')
-            chromadb_port = os.getenv('CHROMADB_PORT', '8000')
-            base_url = f"http://{chromadb_host}:{chromadb_port}"
-            
-            # Heartbeat
-            start = datetime.now()
-            response = requests.get(f"{base_url}/api/v1/heartbeat", timeout=5)
-            heartbeat_ms = (datetime.now() - start).total_seconds() * 1000
-            
-            # Collections 목록
-            collections_response = requests.get(f"{base_url}/api/v1/collections", timeout=5)
-            collections = collections_response.json() if collections_response.status_code == 200 else []
-            
-            total_docs = 0
-            if isinstance(collections, list):
-                for collection in collections:
-                    try:
-                        coll_response = requests.get(
-                            f"{base_url}/api/v1/collections/{collection.get('id', collection.get('name'))}/count",
-                            timeout=5
-                        )
-                        if coll_response.status_code == 200:
-                            total_docs += coll_response.json()
-                    except:
-                        pass
-            
+
+            base_url = os.getenv('ELASTICSEARCH_URL', 'http://elasticsearch:9200').rstrip('/')
+            health_response = requests.get(f"{base_url}/_cluster/health", timeout=5)
+            health_response.raise_for_status()
+            health = health_response.json()
+            indices_response = requests.get(f"{base_url}/_cat/indices?format=json&bytes=mb", timeout=5)
+            indices = indices_response.json() if indices_response.status_code == 200 else []
+            total_documents = sum(int(index.get('docs.count') or 0) for index in indices)
+            store_mb = sum(float(index.get('store.size') or 0) for index in indices)
+
             return {
-                "status": "healthy",
-                "total_collections": len(collections) if isinstance(collections, list) else 0,
-                "total_documents": total_docs,
-                "heartbeat_ms": round(heartbeat_ms, 2)
+                "status": "healthy" if health.get("status") in {"green", "yellow"} else "error",
+                "cluster_status": health.get("status"),
+                "indices_count": len(indices) if isinstance(indices, list) else 0,
+                "total_documents": total_documents,
+                "store_mb": round(store_mb, 2)
             }
         except Exception as e:
-            logger.error(f"ChromaDB 메트릭 수집 실패: {e}")
+            logger.error(f"Elasticsearch 메트릭 수집 실패: {e}")
             return {"status": "error", "error": str(e)}
     
     def get_all_metrics(self) -> Dict[str, Any]:
@@ -784,7 +772,7 @@ class MonitorDashboard:
             "timestamp": datetime.now().isoformat(),
             "postgresql": self.get_postgresql_metrics(),
             "redis": self.get_redis_metrics(),
-            "chromadb": self.get_chromadb_metrics()
+            "elasticsearch": self.get_elasticsearch_metrics()
         }
 
 

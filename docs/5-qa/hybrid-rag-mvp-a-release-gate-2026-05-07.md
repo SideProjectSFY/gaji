@@ -8,9 +8,9 @@ The release-gate runner now remains health-responsive during long evaluation run
 
 ## Environment
 
-- FastAPI: `gaji-ai-service`
+- Spring Boot: `backend service`
 - Spring Boot token broker: `gaji-backend-rag-e2e` on host port `18083`
-- ChromaDB: `gaji-chromadb`
+- pgvector: `gaji-pgvector`
 - Elasticsearch: `gaji-elasticsearch`
 - PostgreSQL: `gaji-postgres`
 - Redis: `gaji-redis`
@@ -21,8 +21,8 @@ The release-gate runner now remains health-responsive during long evaluation run
 ## Code Hardening Completed
 
 - Gemini embedding client now uses an explicit request timeout from `EMBEDDING_REQUEST_TIMEOUT_MS`.
-- Docker Compose passes `EMBEDDING_REQUEST_TIMEOUT_MS=30000` to the AI service.
-- RAG search execution is offloaded from the FastAPI event loop with `asyncio.to_thread`.
+- Docker Compose passes `EMBEDDING_REQUEST_TIMEOUT_MS=30000` to the Spring RAG module.
+- RAG search execution is offloaded from the Spring Boot event loop with `asyncio.to_thread`.
 - Unit coverage verifies the embedding timeout wiring and search offload path.
 
 Verification:
@@ -79,8 +79,8 @@ BM25-only full run completed with the latest latency protocol.
 
 Artifacts:
 
-- Markdown: `gajiAI/reports/rag/rag_eval_1778125730.md`
-- JSON: `gajiAI/reports/rag/rag_eval_1778125730.json`
+- Markdown: `gajiBE/reports/rag/rag_eval_1778125730.md`
+- JSON: `gajiBE/reports/rag/rag_eval_1778125730.json`
 
 Metrics:
 
@@ -113,4 +113,4 @@ Metrics:
 
 The next story remains **MVP-A Release Gate Closure Re-run** with a quota-provisioned Gemini embedding key or after quota reset. MVP-B chat integration should start only after the all-mode gate produces a PASS or an explicit waiver.
 
-Once the full gate passes, the following story is **MVP-B: Hybrid RAG Chat Integration**, which attaches hybrid retrieval context to `/v1/chat/completions`.
+Once the full gate passes, the following story is **MVP-B: Hybrid RAG Chat Integration**, which attaches hybrid retrieval context to `/api/v1/ai/chat/completions`.

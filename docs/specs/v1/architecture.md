@@ -33,11 +33,11 @@ This architecture defines the target system after modernization:
 flowchart LR
     User["User Browser"] --> FE["Next.js Frontend"]
     FE -->|"Business API"| BE["Spring Boot DDD"]
-    FE -->|"Route Handler Gateway"| AI["AI Service"]
+    FE -->|"Route Handler Gateway"| AI["Spring RAG module"]
     FE -->|"Token Issue Request"| BE
-    BE -->|"AI Access Token"| FE
+    BE -->|"Service Auth Token"| FE
     BE --> DB["PostgreSQL"]
-    AI --> VDB["Vector DB"]
+    AI --> PGV["pgvector"]
 ```
 
 ## 4. Spring DDD Architecture
@@ -94,7 +94,7 @@ com.gaji.<context>
 ## 5.1 Project Structure
 
 ```text
-gajiFE-next/src/
+gajiFE/src/
   app/
     (public)/
     (app)/
@@ -132,7 +132,7 @@ Frontend config files:
 Examples:
 
 1. `SSGetBooks.ts`
-2. `SSAiTokenActions.ts`
+2. `SSChatAuthActions.ts`
 3. `CSChatPanel.tsx`
 4. `CSAiGatewayApi.ts`
 
@@ -151,19 +151,19 @@ sequenceDiagram
     participant C as Client (CS*)
     participant R as Next Route Handler
     participant S as Spring Token API
-    participant A as AI Service
+    participant A as Spring RAG module
 
     C->>R: POST /api/ai/chat
-    R->>S: POST /api/v1/ai-token
+    R->>S: POST /api/v1/ai/chat/completions
     S-->>R: short-lived access token
-    R->>A: POST /v1/chat/completions (Bearer token)
+    R->>A: POST /api/v1/ai/chat/completions (Bearer token)
     A-->>R: completion result
     R-->>C: sanitized response
 ```
 
 ## 6.2 Security Rules
 
-1. AI token TTL is short.
+1. Service auth token TTL is short.
 2. Refresh/session tokens are never sent to AI.
 3. AI validates signature/claims/scope.
 4. Ownership checks are required for conversation-bound operations.
