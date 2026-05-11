@@ -83,6 +83,10 @@ web_modules/
 .env.production.local
 .env.local
 
+# Python generated artifacts
+__pycache__/
+*.pyc
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

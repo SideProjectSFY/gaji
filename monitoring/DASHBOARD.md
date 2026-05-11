@@ -177,7 +177,7 @@ export DB_NAME=gaji_db
 export DB_USER=gaji_user
 export DB_PASSWORD=your_password
 export REDIS_HOST=localhost
-export CHROMADB_HOST=localhost
+export ELASTICSEARCH_URL=http://localhost:9200
 
 # 대시보드 실행
 python scripts/dashboard.py
