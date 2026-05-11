@@ -4,7 +4,7 @@
 
 Gaji는 책 속 인물과 대화하다가, 대화 중 떠오른 "만약에?"를 새로운 이야기 가지로 이어갈 수 있는 AI 독서 서비스입니다.
 
-- 서비스: [https://gaji.me](https://gaji.me)
+- 서비스: [https://gaji.me](https://gaji.me) (현재 잠정 운영 중단)
 
 ## 한눈에 보기
 
